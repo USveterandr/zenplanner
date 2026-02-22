@@ -1,11 +1,6 @@
-# Cloudflare Pages Configuration
-# This file configures deployment to Cloudflare Pages
-
 name = "zen-planner"
 compatibility_date = "2024-01-01"
-
-[site]
-bucket = ".vercel/output/static"
+pages_build_output_dir = ".vercel/output"
 
 [build]
 command = "npm run build:cf"
