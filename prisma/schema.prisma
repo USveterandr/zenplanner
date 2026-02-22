@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// NOTE: This app currently uses client-side localStorage for all data persistence.
+// The Prisma schema below is provided as a foundation for future server-side
+// data persistence. To activate it:
+// 1. Set DATABASE_URL in .env.local (see .env.example)
+// 2. Run `bun run db:push` to create the tables
+// 3. Update components to use API routes instead of localStorage
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tasks     Task[]
+  goals     Goal[]
+  habits    Habit[]
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  completed   Boolean   @default(false)
+  priority    String    @default("medium") // high, medium, low
+  dueDate     DateTime?
+  category    String    @default("personal")
+  order       Int       @default(0)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  color       String   @default("#6366f1")
+  progress    Int      @default(0)
+  targetDate  DateTime?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model Habit {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  frequency   String   @default("daily") // daily, weekly, monthly
+  color       String   @default("#6366f1")
+  streak      Int      @default(0)
+  bestStreak  Int      @default(0)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}

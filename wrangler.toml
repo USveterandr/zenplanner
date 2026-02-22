@@ -1,0 +1,18 @@
+# Cloudflare Pages Configuration
+# This file configures deployment to Cloudflare Pages
+
+name = "zen-planner"
+compatibility_date = "2024-01-01"
+
+[site]
+bucket = ".vercel/output/static"
+
+[build]
+command = "npm run build:cf"
+
+[build.environment]
+NODE_VERSION = "20"
+
+# Environment variables (set these in Cloudflare Dashboard)
+# [vars]
+# Any public environment variables can go here
