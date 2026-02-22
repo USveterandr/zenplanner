@@ -2,12 +2,5 @@ name = "zen-planner"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = ".vercel/output"
 
-[build]
-command = "npm run build:cf"
-
-[build.environment]
-NODE_VERSION = "20"
-
-# Environment variables (set these in Cloudflare Dashboard)
-# [vars]
-# Any public environment variables can go here
+# Note: Build command (npm run build:cf) and NODE_VERSION (20) 
+# must be configured in the Cloudflare Pages Dashboard.
