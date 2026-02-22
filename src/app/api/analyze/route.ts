@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 
+export const runtime = 'edge';
+
 interface Task {
   id: string;
   title: string;
