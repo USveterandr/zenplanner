@@ -18,11 +18,38 @@ export const metadata: Metadata = {
   description: "Beat procrastination with AI-powered task management, goal tracking, habit building, and productivity insights.",
   keywords: ["todo", "planner", "productivity", "AI", "task management", "goals", "habits"],
   authors: [{ name: "Zen Planner Team" }],
-  icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-512.png",
-  },
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Zen Planner",
+    startUpImage: "/icon-512.png",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Zen Planner",
+    title: "Zen Planner - AI-Powered Todo & Planner",
+    description: "Beat procrastination with AI-powered task management",
+    images: [{ url: "/icon-512.png", width: 512, height: 512 }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Zen Planner",
+    description: "AI-Powered Todo & Planner",
+    images: ["/icon-512.png"],
+  },
 };
 
 export const viewport: Viewport = {
@@ -40,6 +67,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Zen Planner" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         {children}
         <Toaster />
