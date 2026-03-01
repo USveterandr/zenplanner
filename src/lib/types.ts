@@ -14,7 +14,9 @@ export interface Task {
   completed: boolean;
   priority: Priority;
   dueDate?: string;
+  dueTime?: string;
   reminder?: string;
+  reminderMinutesBefore?: number;
   category: string;
   subtasks: SubTask[];
   createdAt: string;
@@ -78,6 +80,104 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+// Reminder Types
+export interface Reminder {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  dueDate: string;
+  dueTime?: string;
+  reminderAt: string;
+  isNotified: boolean;
+}
+
+// Subscription Types
+export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
+
+export interface SubscriptionPlan {
+  id: SubscriptionTier;
+  name: string;
+  price: number;
+  billingCycle: 'monthly' | 'yearly';
+  features: string[];
+  limits: {
+    tasks: number;
+    goals: number;
+    habits: number;
+    aiMessages: number;
+    reminders: number;
+  };
+  highlighted?: boolean;
+}
+
+export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: 6.97,
+    billingCycle: 'monthly',
+    features: [
+      'Unlimited tasks',
+      'Up to 5 goals',
+      'Up to 10 habits',
+      '50 AI messages/month',
+      'Basic reminders',
+      'Calendar view',
+    ],
+    limits: { tasks: -1, goals: 5, habits: 10, aiMessages: 50, reminders: 10 },
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 12.97,
+    billingCycle: 'monthly',
+    features: [
+      'Everything in Starter',
+      'Unlimited goals',
+      'Unlimited habits',
+      '200 AI messages/month',
+      'Smart reminders',
+      'Priority support',
+      'Advanced analytics',
+    ],
+    limits: { tasks: -1, goals: -1, habits: -1, aiMessages: 200, reminders: 50 },
+    highlighted: true,
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    price: 29.97,
+    billingCycle: 'monthly',
+    features: [
+      'Everything in Pro',
+      '500 AI messages/month',
+      'Team collaboration',
+      'Shared calendars',
+      'Admin dashboard',
+      'API access',
+      'Custom integrations',
+    ],
+    limits: { tasks: -1, goals: -1, habits: -1, aiMessages: 500, reminders: -1 },
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 49.97,
+    billingCycle: 'monthly',
+    features: [
+      'Everything in Business',
+      'Unlimited AI messages',
+      'Unlimited team members',
+      'White-label options',
+      'SSO authentication',
+      'Dedicated support',
+      'SLA guarantee',
+      'Custom development',
+    ],
+    limits: { tasks: -1, goals: -1, habits: -1, aiMessages: -1, reminders: -1 },
+  },
+];
+
 // Analytics Types
 export interface ProductivityStats {
   totalTasks: number;
@@ -98,6 +198,18 @@ export interface AIInsight {
   description: string;
   actionable?: boolean;
   action?: string;
+}
+
+// Calendar Event
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;
+  time?: string;
+  type: 'task' | 'reminder' | 'goal';
+  completed: boolean;
+  priority?: Priority;
+  color?: string;
 }
 
 // Store State
@@ -123,6 +235,11 @@ export interface AppState {
   chatMessages: ChatMessage[];
   addChatMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearChat: () => void;
+  reminders: Reminder[];
+  addReminder: (reminder: Omit<Reminder, 'id' | 'isNotified'>) => void;
+  dismissReminder: (id: string) => void;
+  subscription: SubscriptionTier;
+  setSubscription: (tier: SubscriptionTier) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   selectedDate: string;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AppState, Task, Goal, Habit, Category, ChatMessage } from './types';
+import type { AppState, Task, Goal, Habit, Category, ChatMessage, Reminder, SubscriptionTier } from './types';
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -120,6 +120,18 @@ export const useAppStore = create<AppState>()(
       },
       clearChat: () => { set({ chatMessages: [] }); },
 
+      reminders: [],
+      addReminder: (reminderData) => {
+        const newReminder: Reminder = { ...reminderData, id: generateId(), isNotified: false };
+        set((state) => ({ reminders: [...state.reminders, newReminder] }));
+      },
+      dismissReminder: (id) => {
+        set((state) => ({ reminders: state.reminders.filter((r) => r.id !== id) }));
+      },
+
+      subscription: 'free',
+      setSubscription: (tier: SubscriptionTier) => set({ subscription: tier }),
+
       activeTab: 'tasks',
       setActiveTab: (tab) => set({ activeTab: tab }),
       selectedDate: new Date().toISOString().split('T')[0],
@@ -135,6 +147,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         tasks: state.tasks, goals: state.goals, habits: state.habits,
         categories: state.categories, chatMessages: state.chatMessages,
+        reminders: state.reminders, subscription: state.subscription,
       }),
     }
   )
@@ -164,4 +177,57 @@ export function calculateStats(tasks: Task[]) {
     weeklyTrend.push({ date: dateStr, completed: dayTasks.filter((t) => t.completed).length, total: dayTasks.length });
   }
   return { totalTasks, completedTasks, pendingTasks, overdueTasks, completionRate, productivityScore, tasksByPriority, tasksByCategory, weeklyTrend };
+}
+
+export function getTasksForDate(tasks: Task[], date: string): Task[] {
+  return tasks.filter((t) => t.dueDate === date);
+}
+
+export function getUpcomingReminders(tasks: Task[]): { task: Task; reminderTime: Date }[] {
+  const now = new Date();
+  const upcoming: { task: Task; reminderTime: Date }[] = [];
+
+  tasks.forEach((task) => {
+    if (task.completed || !task.dueDate || !task.reminderMinutesBefore) return;
+    const dueDateTime = new Date(`${task.dueDate}T${task.dueTime || '23:59'}`);
+    const reminderTime = new Date(dueDateTime.getTime() - task.reminderMinutesBefore * 60000);
+    if (reminderTime > now) {
+      upcoming.push({ task, reminderTime });
+    }
+  });
+
+  return upcoming.sort((a, b) => a.reminderTime.getTime() - b.reminderTime.getTime());
+}
+
+export function getCalendarEvents(tasks: Task[], goals: Goal[]) {
+  const events: { id: string; title: string; date: string; time?: string; type: 'task' | 'goal'; completed: boolean; priority?: string; color?: string }[] = [];
+
+  tasks.forEach((t) => {
+    if (t.dueDate) {
+      events.push({
+        id: t.id,
+        title: t.title,
+        date: t.dueDate,
+        time: t.dueTime,
+        type: 'task',
+        completed: t.completed,
+        priority: t.priority,
+      });
+    }
+  });
+
+  goals.forEach((g) => {
+    if (g.targetDate) {
+      events.push({
+        id: g.id,
+        title: g.title,
+        date: g.targetDate,
+        type: 'goal',
+        completed: g.progress >= 100,
+        color: g.color,
+      });
+    }
+  });
+
+  return events;
 }
