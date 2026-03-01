@@ -8,8 +8,8 @@ import type { Priority } from '@/lib/types';
 import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
-  Loader2, Flame, ChevronLeft, ChevronRight, Bell, Clock,
-  Check, X, CreditCard
+  Loader2, Flame, ChevronLeft, ChevronRight, Bell,
+  Check, CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,13 +30,13 @@ const tabs = [
   { id: 'pricing', label: 'Upgrade', icon: Crown },
 ];
 
-const priorityColors = {
+const priorityColors: Record<Priority, string> = {
   high: 'bg-red-500 hover:bg-red-600',
   medium: 'bg-amber-500 hover:bg-amber-600',
   low: 'bg-green-500 hover:bg-green-600',
 };
 
-const priorityTextColors = {
+const priorityTextColors: Record<Priority, string> = {
   high: 'text-red-500',
   medium: 'text-amber-500',
   low: 'text-green-500',
@@ -47,13 +47,15 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 export default function Home() {
   const {
-    tasks, goals, habits, addTask, toggleTask, deleteTask, updateTask,
+    tasks, goals, habits, addTask, toggleTask, deleteTask,
     addGoal, addHabit, toggleHabitCompletion, addChatMessage, chatMessages,
     _hasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
     subscription, setSubscription
   } = useAppStore();
+  
   const isMobile = useIsMobile();
 
+  // All useState hooks MUST be before any conditional returns
   const [newTask, setNewTask] = useState('');
   const [taskPriority, setTaskPriority] = useState<Priority>('medium');
   const [taskDueDate, setTaskDueDate] = useState('');
@@ -65,9 +67,23 @@ export default function Home() {
   const [newHabit, setNewHabit] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
-  const [showReminderModal, setShowReminderModal] = useState(false);
-  const [selectedTaskForReminder, setSelectedTaskForReminder] = useState<string | null>(null);
 
+  // All useMemo hooks MUST be before any conditional returns
+  const calendarEvents = useMemo(() => getCalendarEvents(tasks, goals), [tasks, goals]);
+  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const stats = useMemo(() => calculateStats(tasks), [tasks]);
+  const pendingTasks = useMemo(() => tasks.filter(t => !t.completed).length, [tasks]);
+  const todayTasks = useMemo(() => getTasksForDate(tasks, today), [tasks, today]);
+  const selectedDateTasks = useMemo(() => selectedDate ? getTasksForDate(tasks, selectedDate) : [], [tasks, selectedDate]);
+  const dueReminders = useMemo(() => tasks.filter(t => {
+    if (t.completed || !t.dueDate || !t.reminderMinutesBefore) return false;
+    const dueDateTime = new Date(`${t.dueDate}T${t.dueTime || '23:59'}`);
+    const reminderTime = new Date(dueDateTime.getTime() - t.reminderMinutesBefore * 60000);
+    const now = new Date();
+    return now >= reminderTime && now <= dueDateTime;
+  }), [tasks]);
+
+  // Now we can do the conditional return AFTER all hooks
   if (!_hasHydrated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
@@ -78,20 +94,6 @@ export default function Home() {
       </div>
     );
   }
-
-  const pendingTasks = tasks.filter(t => !t.completed).length;
-  const stats = calculateStats(tasks);
-  const today = new Date().toISOString().split('T')[0];
-  const todayTasks = getTasksForDate(tasks, today);
-
-  // Check for due reminders
-  const dueReminders = tasks.filter(t => {
-    if (t.completed || !t.dueDate || !t.reminderMinutesBefore) return false;
-    const dueDateTime = new Date(`${t.dueDate}T${t.dueTime || '23:59'}`);
-    const reminderTime = new Date(dueDateTime.getTime() - t.reminderMinutesBefore * 60000);
-    const now = new Date();
-    return now >= reminderTime && now <= dueDateTime;
-  });
 
   const handleAddTask = () => {
     if (!newTask.trim()) return;
@@ -154,11 +156,8 @@ export default function Home() {
     }
   };
 
-  // Calendar helpers
   const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
-
-  const calendarEvents = useMemo(() => getCalendarEvents(tasks, goals), [tasks, goals]);
 
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(calendarMonth, calendarYear);
@@ -214,8 +213,6 @@ export default function Home() {
 
     return days;
   };
-
-  const selectedDateTasks = selectedDate ? getTasksForDate(tasks, selectedDate) : [];
 
   const renderPricing = () => (
     <div className="h-full flex flex-col p-4 overflow-auto">
@@ -315,8 +312,8 @@ export default function Home() {
             </div>
 
             <div className="flex gap-2 mb-4 flex-wrap">
-              <Input type="date" value={taskDueDate} onChange={(e) => setTaskDueDate(e.target.value)} className="w-40" placeholder="Due date" />
-              <Input type="time" value={taskDueTime} onChange={(e) => setTaskDueTime(e.target.value)} className="w-32" placeholder="Time" />
+              <Input type="date" value={taskDueDate} onChange={(e) => setTaskDueDate(e.target.value)} className="w-40" />
+              <Input type="time" value={taskDueTime} onChange={(e) => setTaskDueTime(e.target.value)} className="w-32" />
               <select
                 value={taskReminder}
                 onChange={(e) => setTaskReminder(Number(e.target.value))}
@@ -380,11 +377,17 @@ export default function Home() {
                 <Calendar className="h-5 w-5 text-violet-500" /> Calendar
               </h2>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); } else { setCalendarMonth(calendarMonth - 1); } }}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); }
+                  else { setCalendarMonth(calendarMonth - 1); }
+                }}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="font-medium min-w-[140px] text-center">{MONTHS[calendarMonth]} {calendarYear}</span>
-                <Button variant="outline" size="sm" onClick={() => { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(calendarYear + 1); } else { setCalendarMonth(calendarMonth + 1); } }}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(calendarYear + 1); }
+                  else { setCalendarMonth(calendarMonth + 1); }
+                }}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -614,39 +617,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-      {/* Reminder Modal */}
-      {dueReminders.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-violet-500 animate-bounce" />
-                Reminder
-              </CardTitle>
-              <CardDescription>You have {dueReminders.length} task(s) due soon!</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {dueReminders.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 rounded-lg bg-muted">
-                    <div>
-                      <p className="font-medium">{task.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Due: {task.dueDate} {task.dueTime && `at ${task.dueTime}`}
-                      </p>
-                    </div>
-                    <Button size="sm" onClick={() => toggleTask(task.id)}>Done</Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" onClick={() => setShowReminderModal(false)}>Dismiss</Button>
-            </CardFooter>
-          </Card>
-        </div>
-      )}
-
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
