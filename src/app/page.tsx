@@ -2,9 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents } from '@/lib/store';
-import { SUBSCRIPTION_PLANS } from '@/lib/types';
-import type { Priority } from '@/lib/types';
+import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS } from '@/lib/store';
+import type { Priority } from '@/lib/store';
 import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,

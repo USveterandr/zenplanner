@@ -32,7 +32,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Zen Planner",
-    startUpImage: "/icon-512.png",
   },
   formatDetection: {
     telephone: false,
