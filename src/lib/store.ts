@@ -88,7 +88,7 @@ export const SUBSCRIPTION_PLANS = [
   {
     id: 'starter' as const,
     name: 'Starter',
-    price: 6.99,
+    price: 6.97,
     billingCycle: 'monthly' as const,
     hasTrial: true,
     trialDays: 7,
@@ -105,7 +105,7 @@ export const SUBSCRIPTION_PLANS = [
   {
     id: 'pro' as const,
     name: 'Pro',
-    price: 12.99,
+    price: 12.97,
     billingCycle: 'monthly' as const,
     hasTrial: true,
     trialDays: 7,
@@ -123,7 +123,7 @@ export const SUBSCRIPTION_PLANS = [
   {
     id: 'business' as const,
     name: 'Business',
-    price: 29.99,
+    price: 29.97,
     billingCycle: 'monthly' as const,
     hasTrial: false,
     trialDays: 0,
@@ -141,7 +141,7 @@ export const SUBSCRIPTION_PLANS = [
   {
     id: 'enterprise' as const,
     name: 'Enterprise',
-    price: 49.99,
+    price: 49.97,
     billingCycle: 'monthly' as const,
     hasTrial: false,
     trialDays: 0,
