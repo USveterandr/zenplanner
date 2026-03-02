@@ -69,13 +69,29 @@ export interface Reminder {
 
 export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
 
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  createdAt: string;
+}
+
+export interface SubscriptionInfo {
+  tier: SubscriptionTier;
+  startDate: string | null;
+  trialEndDate: string | null;
+}
+
 // Subscription Plans
 export const SUBSCRIPTION_PLANS = [
   {
     id: 'starter' as const,
     name: 'Starter',
-    price: 6.97,
+    price: 6.99,
     billingCycle: 'monthly' as const,
+    hasTrial: true,
+    trialDays: 7,
     features: [
       'Unlimited tasks',
       'Up to 5 goals',
@@ -89,8 +105,10 @@ export const SUBSCRIPTION_PLANS = [
   {
     id: 'pro' as const,
     name: 'Pro',
-    price: 12.97,
+    price: 12.99,
     billingCycle: 'monthly' as const,
+    hasTrial: true,
+    trialDays: 7,
     features: [
       'Everything in Starter',
       'Unlimited goals',
@@ -105,8 +123,10 @@ export const SUBSCRIPTION_PLANS = [
   {
     id: 'business' as const,
     name: 'Business',
-    price: 29.97,
+    price: 29.99,
     billingCycle: 'monthly' as const,
+    hasTrial: false,
+    trialDays: 0,
     features: [
       'Everything in Pro',
       '500 AI messages/month',
@@ -121,8 +141,10 @@ export const SUBSCRIPTION_PLANS = [
   {
     id: 'enterprise' as const,
     name: 'Enterprise',
-    price: 49.97,
+    price: 49.99,
     billingCycle: 'monthly' as const,
+    hasTrial: false,
+    trialDays: 0,
     features: [
       'Everything in Business',
       'Unlimited AI messages',
@@ -136,6 +158,21 @@ export const SUBSCRIPTION_PLANS = [
     highlighted: false,
   },
 ];
+
+// Helper to check if trial is still active
+export function isTrialActive(subscriptionInfo: SubscriptionInfo): boolean {
+  if (!subscriptionInfo.trialEndDate) return false;
+  return new Date() < new Date(subscriptionInfo.trialEndDate);
+}
+
+// Helper to get days remaining in trial
+export function getTrialDaysRemaining(subscriptionInfo: SubscriptionInfo): number {
+  if (!subscriptionInfo.trialEndDate) return 0;
+  const now = new Date();
+  const end = new Date(subscriptionInfo.trialEndDate);
+  const diff = end.getTime() - now.getTime();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
 
 // Generate unique ID
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -151,6 +188,10 @@ const defaultCategories: Category[] = [
 
 // Store interface
 interface AppState {
+  // Auth
+  user: UserAccount | null;
+  subscriptionInfo: SubscriptionInfo;
+
   // Data
   tasks: Task[];
   goals: Goal[];
@@ -168,6 +209,11 @@ interface AppState {
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
   
+  // Auth actions
+  signUp: (name: string, email: string, password: string) => { success: boolean; error?: string };
+  signIn: (email: string, password: string) => { success: boolean; error?: string };
+  signOut: () => void;
+
   // Task actions
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
@@ -200,6 +246,7 @@ interface AppState {
   
   // Subscription actions
   setSubscription: (tier: SubscriptionTier) => void;
+  selectPlan: (tier: SubscriptionTier) => void;
   
   // UI actions
   setActiveTab: (tab: string) => void;
@@ -210,6 +257,10 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
+      // Auth
+      user: null,
+      subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null },
+
       // Initial data
       tasks: [],
       goals: [],
@@ -226,6 +277,38 @@ export const useAppStore = create<AppState>()(
       // Hydration
       _hasHydrated: false,
       setHasHydrated: (state) => set({ _hasHydrated: state }),
+
+      // Auth actions
+      signUp: (name, email, password) => {
+        const existing = get().user;
+        if (existing && existing.email === email) {
+          return { success: false, error: 'An account with this email already exists.' };
+        }
+        const newUser: UserAccount = {
+          id: generateId(),
+          name,
+          email,
+          password,
+          createdAt: new Date().toISOString(),
+        };
+        set({ user: newUser });
+        return { success: true };
+      },
+
+      signIn: (email, password) => {
+        const user = get().user;
+        if (!user) {
+          return { success: false, error: 'No account found. Please sign up first.' };
+        }
+        if (user.email !== email || user.password !== password) {
+          return { success: false, error: 'Invalid email or password.' };
+        }
+        return { success: true };
+      },
+
+      signOut: () => {
+        set({ user: null, subscription: 'free', subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null } });
+      },
       
       // Task actions
       addTask: (taskData) => {
@@ -401,6 +484,27 @@ export const useAppStore = create<AppState>()(
       
       // Subscription actions
       setSubscription: (tier) => set({ subscription: tier }),
+
+      selectPlan: (tier) => {
+        const plan = SUBSCRIPTION_PLANS.find(p => p.id === tier);
+        const now = new Date();
+        let trialEndDate: string | null = null;
+
+        if (plan?.hasTrial) {
+          const trialEnd = new Date(now);
+          trialEnd.setDate(trialEnd.getDate() + plan.trialDays);
+          trialEndDate = trialEnd.toISOString();
+        }
+
+        set({
+          subscription: tier,
+          subscriptionInfo: {
+            tier,
+            startDate: now.toISOString(),
+            trialEndDate,
+          },
+        });
+      },
       
       // UI actions
       setActiveTab: (tab) => set({ activeTab: tab }),
@@ -413,6 +517,8 @@ export const useAppStore = create<AppState>()(
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({
+        user: state.user,
+        subscriptionInfo: state.subscriptionInfo,
         tasks: state.tasks,
         goals: state.goals,
         habits: state.habits,

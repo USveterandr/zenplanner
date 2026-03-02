@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
           Privacy Policy
         </h1>
         <p className="text-sm text-gray-500 mb-8">
-          Last updated: March 1, 2026
+          Last updated: March 2, 2026
         </p>
 
         <div className="prose prose-gray max-w-none space-y-8">
@@ -46,6 +46,12 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
               <li>
+                Account information (name, email address, password)
+              </li>
+              <li>
+                Subscription plan selection and trial status
+              </li>
+              <li>
                 Tasks (titles, descriptions, priorities, due dates, categories,
                 completion status)
               </li>
@@ -57,7 +63,6 @@ export default function PrivacyPolicyPage() {
               <li>Categories (names, colors, icons)</li>
               <li>Reminders and notification preferences</li>
               <li>AI Advisor chat history</li>
-              <li>Subscription tier preference</li>
               <li>UI preferences (e.g., sidebar state)</li>
             </ul>
 
@@ -111,17 +116,12 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
               <li>
-                We do not collect personal identification information (name,
-                email, phone number)
+                We do not transmit your account information to external servers
+                &mdash; it is stored locally on your device
               </li>
-              <li>We do not require account creation or login</li>
               <li>We do not use tracking cookies or advertising identifiers</li>
               <li>We do not use analytics or crash reporting services</li>
               <li>We do not sell or share your data with advertisers</li>
-              <li>
-                We do not process payments (subscription features are for
-                display purposes)
-              </li>
             </ul>
           </section>
 
@@ -238,14 +238,20 @@ export default function PrivacyPolicyPage() {
             </h2>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
               <li>
-                <strong>Delete your data:</strong> You can delete all your data
-                at any time by clearing your browser&apos;s local storage or
-                uninstalling the App.
+                <strong>Delete your account and data:</strong> You can sign out
+                and delete all your data at any time by clearing your
+                browser&apos;s local storage or uninstalling the App. Since all
+                data is stored locally, signing out removes access to your
+                account data.
               </li>
               <li>
                 <strong>Opt out of AI features:</strong> You can use the App
                 without the AI Advisor. No data is sent to external AI services
                 unless you actively use this feature.
+              </li>
+              <li>
+                <strong>Manage your subscription:</strong> You can change or
+                cancel your subscription plan at any time from within the App.
               </li>
               <li>
                 <strong>Disable notifications:</strong> You can manage

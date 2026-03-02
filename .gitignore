@@ -23,6 +23,7 @@ node_modules
 # misc
 .DS_Store
 *.pem
+*.aab
 
 # debug
 npm-debug.log*

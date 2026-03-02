@@ -2,13 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS } from '@/lib/store';
-import type { Priority } from '@/lib/store';
+import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS, isTrialActive, getTrialDaysRemaining } from '@/lib/store';
+import type { Priority, SubscriptionTier } from '@/lib/store';
 import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
   Loader2, Flame, ChevronLeft, ChevronRight, Bell,
-  Check, CreditCard
+  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +49,8 @@ export default function Home() {
     tasks, goals, habits, addTask, toggleTask, deleteTask,
     addGoal, addHabit, toggleHabitCompletion, addChatMessage, chatMessages,
     _hasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
-    subscription, setSubscription
+    subscription, setSubscription, user, signUp, signIn, signOut,
+    subscriptionInfo, selectPlan
   } = useAppStore();
   
   const isMobile = useIsMobile();
@@ -67,6 +68,15 @@ export default function Home() {
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
 
+  // Auth form state
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [authName, setAuthName] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState('');
+
   // All useMemo hooks MUST be before any conditional returns
   const calendarEvents = useMemo(() => getCalendarEvents(tasks, goals), [tasks, goals]);
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -74,6 +84,8 @@ export default function Home() {
   const pendingTasks = useMemo(() => tasks.filter(t => !t.completed).length, [tasks]);
   const todayTasks = useMemo(() => getTasksForDate(tasks, today), [tasks, today]);
   const selectedDateTasks = useMemo(() => selectedDate ? getTasksForDate(tasks, selectedDate) : [], [tasks, selectedDate]);
+  const trialActive = useMemo(() => isTrialActive(subscriptionInfo), [subscriptionInfo]);
+  const trialDaysLeft = useMemo(() => getTrialDaysRemaining(subscriptionInfo), [subscriptionInfo]);
   const dueReminders = useMemo(() => tasks.filter(t => {
     if (t.completed || !t.dueDate || !t.reminderMinutesBefore) return false;
     const dueDateTime = new Date(`${t.dueDate}T${t.dueTime || '23:59'}`);
@@ -89,6 +101,275 @@ export default function Home() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-muted-foreground">Loading Zen Planner...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth handlers
+  const handleSignUp = () => {
+    setAuthError('');
+    if (!authName.trim()) { setAuthError('Name is required.'); return; }
+    if (!authEmail.trim()) { setAuthError('Email is required.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail)) { setAuthError('Please enter a valid email address.'); return; }
+    if (authPassword.length < 6) { setAuthError('Password must be at least 6 characters.'); return; }
+    if (authPassword !== authConfirmPassword) { setAuthError('Passwords do not match.'); return; }
+    const result = signUp(authName.trim(), authEmail.trim().toLowerCase(), authPassword);
+    if (!result.success) { setAuthError(result.error || 'Sign up failed.'); return; }
+    setAuthName(''); setAuthEmail(''); setAuthPassword(''); setAuthConfirmPassword('');
+  };
+
+  const handleSignIn = () => {
+    setAuthError('');
+    if (!authEmail.trim()) { setAuthError('Email is required.'); return; }
+    if (!authPassword.trim()) { setAuthError('Password is required.'); return; }
+    const result = signIn(authEmail.trim().toLowerCase(), authPassword);
+    if (!result.success) { setAuthError(result.error || 'Sign in failed.'); return; }
+    setAuthEmail(''); setAuthPassword('');
+  };
+
+  const handleSelectPlan = (tier: SubscriptionTier) => {
+    selectPlan(tier);
+  };
+
+  // If not logged in, show auth screen
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
+              <CheckCircle2 className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">Zen Planner</h1>
+            <p className="text-muted-foreground mt-1">AI-Powered Productivity</p>
+          </div>
+
+          <Card className="shadow-xl border-0">
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="text-xl">
+                {authMode === 'signup' ? 'Create Your Account' : 'Welcome Back'}
+              </CardTitle>
+              <CardDescription>
+                {authMode === 'signup'
+                  ? 'Start your productivity journey today'
+                  : 'Sign in to continue where you left off'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {authError && (
+                <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200">
+                  {authError}
+                </div>
+              )}
+
+              {authMode === 'signup' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="John Doe"
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (authMode === 'signup' ? handleSignUp() : handleSignIn())}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder={authMode === 'signup' ? 'At least 6 characters' : 'Enter your password'}
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (authMode === 'signin' ? handleSignIn() : undefined)}
+                    className="pl-10 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {authMode === 'signup' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Confirm Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Confirm your password"
+                      value={authConfirmPassword}
+                      onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSignUp()}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Button
+                className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
+                size="lg"
+                onClick={authMode === 'signup' ? handleSignUp : handleSignIn}
+              >
+                {authMode === 'signup' ? (
+                  <><UserPlus className="h-4 w-4 mr-2" /> Create Account</>
+                ) : (
+                  <><LogIn className="h-4 w-4 mr-2" /> Sign In</>
+                )}
+              </Button>
+            </CardContent>
+            <CardFooter className="justify-center">
+              <p className="text-sm text-muted-foreground">
+                {authMode === 'signup' ? (
+                  <>Already have an account?{' '}
+                    <button onClick={() => { setAuthMode('signin'); setAuthError(''); }} className="text-violet-600 hover:text-violet-700 font-medium">
+                      Sign In
+                    </button>
+                  </>
+                ) : (
+                  <>Don&apos;t have an account?{' '}
+                    <button onClick={() => { setAuthMode('signup'); setAuthError(''); }} className="text-violet-600 hover:text-violet-700 font-medium">
+                      Sign Up
+                    </button>
+                  </>
+                )}
+              </p>
+            </CardFooter>
+          </Card>
+
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            By creating an account, you agree to our{' '}
+            <a href="/privacy-policy" className="text-violet-600 hover:underline">Privacy Policy</a>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If logged in but no subscription selected, show plan selection
+  if (subscription === 'free') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 p-4">
+        <div className="max-w-5xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-8 pt-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
+              <Crown className="h-7 w-7 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Choose Your Plan</h1>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Welcome, {user.name}! Select a plan to unlock all features and start your productivity journey.
+            </p>
+          </div>
+
+          {/* Plans Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {SUBSCRIPTION_PLANS.map((plan) => (
+              <Card
+                key={plan.id}
+                className={cn(
+                  'relative flex flex-col transition-all hover:shadow-lg',
+                  plan.highlighted && 'border-violet-500 border-2 shadow-lg lg:scale-105'
+                )}
+              >
+                {plan.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-violet-500 shadow-md">Most Popular</Badge>
+                  </div>
+                )}
+                {plan.hasTrial && (
+                  <div className="absolute -top-3 right-3">
+                    <Badge className="bg-green-500 shadow-md">
+                      <Clock className="h-3 w-3 mr-1" />
+                      7-Day Free Trial
+                    </Badge>
+                  </div>
+                )}
+                <CardHeader className="text-center pb-2">
+                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <div className="mt-2">
+                    <span className="text-4xl font-bold">${plan.price}</span>
+                    <span className="text-muted-foreground">/month</span>
+                  </div>
+                  {plan.hasTrial && (
+                    <p className="text-xs text-green-600 font-medium mt-1">
+                      Free for 7 days, then ${plan.price}/mo
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <ul className="space-y-2">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    className={cn(
+                      'w-full',
+                      plan.highlighted && 'bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700'
+                    )}
+                    variant={plan.highlighted ? 'default' : 'outline'}
+                    size="lg"
+                    onClick={() => handleSelectPlan(plan.id)}
+                  >
+                    {plan.hasTrial ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2" />
+                        Start Free Trial
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Subscribe
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+
+          <div className="text-center mt-6">
+            <button
+              onClick={signOut}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <LogOut className="h-3 w-3 inline mr-1" />
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -216,9 +497,43 @@ export default function Home() {
   const renderPricing = () => (
     <div className="h-full flex flex-col p-4 overflow-auto">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold mb-2">Choose Your Plan</h2>
-        <p className="text-muted-foreground">Unlock premium features and boost your productivity</p>
+        <h2 className="text-2xl font-bold mb-2">Manage Your Plan</h2>
+        <p className="text-muted-foreground">Upgrade or change your subscription</p>
       </div>
+
+      {/* Current plan status */}
+      {subscription !== 'free' && (
+        <Card className="mb-6 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-violet-500 p-2 rounded-lg">
+                  <Crown className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.name} Plan
+                  </h3>
+                  {trialActive ? (
+                    <p className="text-sm text-green-600 font-medium flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      Free trial - {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} remaining
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      ${SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.price}/month
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-300">
+                Active
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
         {SUBSCRIPTION_PLANS.map((plan) => (
           <Card
@@ -234,12 +549,22 @@ export default function Home() {
                 <Badge className="bg-violet-500">Most Popular</Badge>
               </div>
             )}
+            {plan.hasTrial && subscription !== plan.id && (
+              <div className="absolute -top-3 right-3">
+                <Badge className="bg-green-500 text-xs">7-Day Trial</Badge>
+              </div>
+            )}
             <CardHeader className="text-center pb-2">
               <CardTitle className="text-xl">{plan.name}</CardTitle>
               <div className="mt-2">
                 <span className="text-4xl font-bold">${plan.price}</span>
                 <span className="text-muted-foreground">/month</span>
               </div>
+              {plan.hasTrial && subscription !== plan.id && (
+                <p className="text-xs text-green-600 font-medium mt-1">
+                  Free for 7 days
+                </p>
+              )}
             </CardHeader>
             <CardContent className="flex-1">
               <ul className="space-y-2">
@@ -255,11 +580,16 @@ export default function Home() {
               <Button
                 className="w-full"
                 variant={plan.highlighted ? 'default' : 'outline'}
-                onClick={() => setSubscription(plan.id)}
+                onClick={() => handleSelectPlan(plan.id)}
                 disabled={subscription === plan.id}
               >
                 {subscription === plan.id ? (
                   <>Current Plan</>
+                ) : plan.hasTrial ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2" />
+                    Start Free Trial
+                  </>
                 ) : (
                   <>
                     <CreditCard className="h-4 w-4 mr-2" />
@@ -271,14 +601,6 @@ export default function Home() {
           </Card>
         ))}
       </div>
-      {subscription !== 'free' && (
-        <div className="mt-4 text-center">
-          <Badge variant="outline" className="bg-violet-500/10 text-violet-600">
-            <Crown className="h-3 w-3 mr-1" />
-            Current Plan: {SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.name || 'Free'}
-          </Badge>
-        </div>
-      )}
     </div>
   );
 
@@ -651,8 +973,18 @@ export default function Home() {
                 <Badge className="bg-amber-500">
                   <Crown className="h-3 w-3 mr-1" />
                   {SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.name}
+                  {trialActive && ` (Trial)`}
                 </Badge>
               )}
+              <div className="flex items-center gap-2">
+                <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center">
+                  <User className="h-4 w-4" />
+                </div>
+                <span className="text-sm hidden lg:inline">{user.name}</span>
+                <button onClick={signOut} className="bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Sign out">
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
