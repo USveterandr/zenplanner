@@ -1,0 +1,13 @@
+# Build outputs
+build/
+app/build/
+.gradle/
+
+# Signing keystore (sensitive)
+*.keystore
+*.jks
+
+# IDE
+.idea/
+*.iml
+local.properties

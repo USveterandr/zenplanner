@@ -1,0 +1,49 @@
+{
+  "packageId": "com.zenplanner.app",
+  "host": "zenplanner.vercel.app",
+  "name": "Zen Planner",
+  "launcherName": "Zen Planner",
+  "display": "standalone",
+  "themeColor": "#7C3AED",
+  "themeColorDark": "#5B21B6",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#1F2937",
+  "navigationDividerColor": "#E5E7EB",
+  "navigationDividerColorDark": "#374151",
+  "backgroundColor": "#FFFFFF",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://zenplanner.vercel.app/icon-512.png",
+  "maskableIconUrl": "https://zenplanner.vercel.app/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "zenplanner"
+  },
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Add Task",
+      "shortName": "Task",
+      "url": "/?tab=tasks",
+      "chosenIconUrl": "https://zenplanner.vercel.app/icon-96.png"
+    }
+  ],
+  "generatorApp": "nicolo-nicolo/nicolo-cli",
+  "webManifestUrl": "https://zenplanner.vercel.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://zenplanner.vercel.app/",
+  "minSdkVersion": 19,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": []
+}
