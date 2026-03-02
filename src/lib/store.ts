@@ -296,6 +296,30 @@ export const useAppStore = create<AppState>()(
       },
 
       signIn: (email, password) => {
+        // Hardcoded reviewer account for Google Play review access
+        if (email === 'reviewer@zenplanner.app' && password === 'ZenReview2026!') {
+          const reviewerUser: UserAccount = {
+            id: 'reviewer-account',
+            name: 'Google Reviewer',
+            email: 'reviewer@zenplanner.app',
+            password: 'ZenReview2026!',
+            createdAt: new Date().toISOString(),
+          };
+          const now = new Date();
+          const trialEnd = new Date(now);
+          trialEnd.setDate(trialEnd.getDate() + 7);
+          set({
+            user: reviewerUser,
+            subscription: 'pro',
+            subscriptionInfo: {
+              tier: 'pro',
+              startDate: now.toISOString(),
+              trialEndDate: trialEnd.toISOString(),
+            },
+          });
+          return { success: true };
+        }
+
         const user = get().user;
         if (!user) {
           return { success: false, error: 'No account found. Please sign up first.' };
