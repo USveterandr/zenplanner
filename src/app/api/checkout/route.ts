@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-const LEMON_SQUEEZY_API_KEY = process.env.LEMON_SQUEEZY_API_KEY;
-const LEMON_SQUEEZY_STORE_ID = process.env.LEMON_SQUEEZY_STORE_ID;
-
-// Map your plan IDs to Lemon Squeezy variant IDs
-const PLAN_VARIANTS: Record<string, number> = {
-  starter: 1,
-  pro: 2,
-  business: 3,
-  enterprise: 4,
+const PLAN_CHECKOUT_URLS: Record<string, string> = {
+  starter: "https://zenplanner.lemonsqueezy.com/checkout/buy/88a0edbe-6e8e-45c0-9f9d-264dd48472cb",
+  pro: "https://zenplanner.lemonsqueezy.com/checkout/buy/115ff75b-c1fb-4898-a238-16975794aa82",
+  business: "https://zenplanner.lemonsqueezy.com/checkout/buy/bbe392f6-76ad-4215-8c8a-26113d7ed224",
+  enterprise: "https://zenplanner.lemonsqueezy.com/checkout/buy/59ba6772-50e3-48fe-804e-ef26d44c99d0",
 };
 
 export async function POST(request: Request) {
@@ -29,74 +24,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const variantId = PLAN_VARIANTS[plan];
-    if (!variantId) {
+    const checkoutUrl = PLAN_CHECKOUT_URLS[plan];
+    if (!checkoutUrl) {
       return NextResponse.json(
         { success: false, error: "Invalid plan" },
         { status: 400 }
       );
     }
 
-    // Create checkout URL using Lemon Squeezy API
-    const checkoutData = {
-      data: {
-        type: "checkouts",
-        attributes: {
-          checkout_data: {
-            email,
-            name,
-            custom: {
-              userId,
-            },
-          },
-        },
-        relationships: {
-          store: {
-            data: {
-              type: "stores",
-              id: LEMON_SQUEEZY_STORE_ID || "your-store-id",
-            },
-          },
-          variant: {
-            data: {
-              type: "variants",
-              id: String(variantId),
-            },
-          },
-        },
-      },
-    };
+    // Add userId as a query parameter for the webhook
+    const finalUrl = `${checkoutUrl}?checkout[custom][user_id]=${encodeURIComponent(userId)}`;
 
-    const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
-      method: "POST",
-      headers: {
-        Accept: "application/vnd.api+json",
-        "Content-Type": "application/vnd.api+json",
-        Authorization: `Bearer ${LEMON_SQUEEZY_API_KEY}`,
-      },
-      body: JSON.stringify(checkoutData),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("Lemon Squeezy API error:", error);
-      return NextResponse.json(
-        { success: false, error: "Failed to create checkout" },
-        { status: 500 }
-      );
-    }
-
-    const result = await response.json();
-    const checkoutUrl = result.data?.attributes?.url;
-
-    if (!checkoutUrl) {
-      return NextResponse.json(
-        { success: false, error: "No checkout URL returned" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true, checkoutUrl });
+    return NextResponse.json({ success: true, checkoutUrl: finalUrl });
   } catch (error) {
     console.error("Checkout error:", error);
     return NextResponse.json(
