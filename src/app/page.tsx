@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -67,6 +68,12 @@ export default function Home() {
   const [newHabit, setNewHabit] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  
+  // Calendar quick-add state
+  const [showQuickAddTask, setShowQuickAddTask] = useState(false);
+  const [showQuickAddGoal, setShowQuickAddGoal] = useState(false);
+  const [quickAddTitle, setQuickAddTitle] = useState('');
+  const [quickAddDate, setQuickAddDate] = useState('');
 
   // Auth form state
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
@@ -130,6 +137,45 @@ export default function Home() {
 
   const handleSelectPlan = (tier: SubscriptionTier) => {
     selectPlan(tier);
+  };
+
+  // Quick add handlers for calendar
+  const handleQuickAddTask = async () => {
+    if (!quickAddTitle.trim() || !quickAddDate) return;
+    await addTask({
+      title: quickAddTitle.trim(),
+      completed: false,
+      priority: 'medium',
+      category: 'personal',
+      subtasks: [],
+      dueDate: quickAddDate,
+    });
+    setQuickAddTitle('');
+    setShowQuickAddTask(false);
+  };
+
+  const handleQuickAddGoal = async () => {
+    if (!quickAddTitle.trim() || !quickAddDate) return;
+    await addGoal({
+      title: quickAddTitle.trim(),
+      color: '#8b5cf6',
+      milestones: [],
+      targetDate: quickAddDate,
+    });
+    setQuickAddTitle('');
+    setShowQuickAddGoal(false);
+  };
+
+  const openQuickAddTask = (date: string) => {
+    setQuickAddDate(date);
+    setQuickAddTitle('');
+    setShowQuickAddTask(true);
+  };
+
+  const openQuickAddGoal = (date: string) => {
+    setQuickAddDate(date);
+    setQuickAddTitle('');
+    setShowQuickAddGoal(true);
   };
 
   // If not logged in, show auth screen
@@ -698,6 +744,12 @@ export default function Home() {
                 <Calendar className="h-5 w-5 text-violet-500" /> Calendar
               </h2>
               <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => openQuickAddTask(selectedDate || today)}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Task
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => openQuickAddGoal(selectedDate || today)}>
+                  <Target className="h-4 w-4 mr-1" /> Add Goal
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => {
                   if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); }
                   else { setCalendarMonth(calendarMonth - 1); }
@@ -1015,6 +1067,70 @@ export default function Home() {
           </div>
         </nav>
       )}
+
+      {/* Quick Add Task Dialog */}
+      <Dialog open={showQuickAddTask} onOpenChange={setShowQuickAddTask}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium">Task Title</label>
+              <Input
+                value={quickAddTitle}
+                onChange={(e) => setQuickAddTitle(e.target.value)}
+                placeholder="Enter task title..."
+                onKeyDown={(e) => e.key === 'Enter' && handleQuickAddTask()}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Due Date</label>
+              <Input
+                type="date"
+                value={quickAddDate}
+                onChange={(e) => setQuickAddDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickAddTask(false)}>Cancel</Button>
+            <Button onClick={handleQuickAddTask} disabled={!quickAddTitle.trim()}>Add Task</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Add Goal Dialog */}
+      <Dialog open={showQuickAddGoal} onOpenChange={setShowQuickAddGoal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Goal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium">Goal Title</label>
+              <Input
+                value={quickAddTitle}
+                onChange={(e) => setQuickAddTitle(e.target.value)}
+                placeholder="Enter goal title..."
+                onKeyDown={(e) => e.key === 'Enter' && handleQuickAddGoal()}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Target Date</label>
+              <Input
+                type="date"
+                value={quickAddDate}
+                onChange={(e) => setQuickAddDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickAddGoal(false)}>Cancel</Button>
+            <Button onClick={handleQuickAddGoal} disabled={!quickAddTitle.trim()}>Add Goal</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,23 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
+import { NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
+    const cf = getCloudflareContext();
+    const env = cf.env as any;
+    
     const body = await request.json();
-    const { message, context } = body;
+    const { message, context } = body as { message: string; context?: any };
 
     if (!message) {
-      return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Message is required" }, { status: 400 });
     }
 
-    const zai = await ZAI.create();
-
-    let contextStr = '';
+    let contextStr = "";
     if (context) {
       if (context.tasks?.length > 0) {
         contextStr += `\nTasks (${context.tasks.length}):\n`;
         context.tasks.forEach((t: { title: string; completed: boolean; priority: string }) => {
-          contextStr += `- ${t.completed ? '✓' : '○'} ${t.title} (${t.priority})\n`;
+          contextStr += `- ${t.completed ? "✓" : "○"} ${t.title} (${t.priority})\n`;
         });
       }
       if (context.goals?.length > 0) {
@@ -34,20 +35,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = `You are a helpful AI productivity advisor for Zen Planner. Be concise and helpful.${contextStr ? `\n\nUser context:${contextStr}` : ''}`;
+    const systemPrompt = `You are a helpful AI productivity advisor for Zen Planner app. Be concise, encouraging, and practical. Help users with task management, goal setting, habit building, and productivity tips.${contextStr ? `\n\nCurrent user data:${contextStr}` : ""}`;
 
-    const completion = await zai.chat.completions.create({
+    const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
       ],
-      temperature: 0.7,
       max_tokens: 500,
     });
 
-    return NextResponse.json({ success: true, response: completion.choices[0]?.message?.content || 'Sorry, no response.' });
+    const response = aiResponse.response || "I'm here to help! Try asking me about productivity, task management, or your goals.";
+    
+    return NextResponse.json({ success: true, response });
   } catch (error) {
-    console.error('AI error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to get response' }, { status: 500 });
+    console.error("AI error:", error);
+    return NextResponse.json({ success: false, error: "Failed to get response" }, { status: 500 });
   }
 }
