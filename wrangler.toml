@@ -1,0 +1,17 @@
+name = "zen-planner"
+main = ".open-next/worker.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "zen_planner_db"
+database_name = "zen-planner-db"
+database_id = "efb0a777-d061-408b-baf5-f0ec60982757"
+
+[[r2_buckets]]
+bucket_name = "zen-planner-storage"
+binding = "zen_planner_storage"

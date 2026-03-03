@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -17,16 +11,104 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tasks          Task[]
+  goals          Goal[]
+  habits         Habit[]
+  categories     Category[]
+  reminders      Reminder[]
+  chatMessages   ChatMessage[]
+  subscription   Subscription?
 }
 
-model Post {
+model Task {
   id        String   @id @default(cuid())
   title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  description String?
+  completed Boolean  @default(false)
+  priority  String   @default("medium")
+  dueDate   String?
+  dueTime   String?
+  reminderMinutesBefore Int?
+  category  String   @default("personal")
+  subtasks String   @default("[]")
+  order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  color       String   @default("#8b5cf6")
+  milestones  String   @default("[]")
+  progress    Int      @default(0)
+  targetDate  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Habit {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  frequency    String   @default("daily")
+  color        String   @default("#8b5cf6")
+  completions  String   @default("[]")
+  streak       Int      @default(0)
+  bestStreak   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id    String @id @default(cuid())
+  name  String
+  color String
+  icon  String?
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
+}
+
+model Reminder {
+  id              String   @id @default(cuid())
+  taskId          String
+  taskTitle       String
+  dueDate         String
+  dueTime         String?
+  reminderAt      String
+  isNotified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String
+  content   String
+  timestamp DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id               String   @id @default(cuid())
+  tier             String   @default("free")
+  startDate        DateTime?
+  trialEndDate     DateTime?
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
