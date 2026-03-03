@@ -941,11 +941,18 @@ export default function Home() {
         );
 
       case 'analytics':
+        const hasAdvancedAnalytics = subscription === 'pro' || subscription === 'business' || subscription === 'enterprise';
+        
         return (
           <div className="h-full flex flex-col p-4 overflow-auto">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-blue-500" /> Analytics
+              {!hasAdvancedAnalytics && (
+                <Badge variant="outline" className="text-xs ml-2">Pro</Badge>
+              )}
             </h2>
+            
+            {/* Basic Analytics - Available to all */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               <Card className="bg-gradient-to-br from-violet-500/20 to-indigo-500/20">
                 <CardContent className="p-4">
@@ -972,6 +979,7 @@ export default function Home() {
                 </CardContent>
               </Card>
             </div>
+            
             <Card className="mb-4">
               <CardHeader className="pb-2"><CardTitle className="text-sm">Completion Rate</CardTitle></CardHeader>
               <CardContent>
@@ -981,7 +989,8 @@ export default function Home() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            
+            <Card className="mb-4">
               <CardHeader className="pb-2"><CardTitle className="text-sm">Tasks by Priority</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -1003,6 +1012,110 @@ export default function Home() {
                 </div>
               </CardContent>
             </Card>
+            
+            {/* Advanced Analytics - Pro+ Only */}
+            {hasAdvancedAnalytics ? (
+              <>
+                <Card className="mb-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Weekly Trend</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-end gap-2 h-32">
+                      {stats.weeklyTrend.map((day, idx) => (
+                        <div key={idx} className="flex-1 flex flex-col items-center">
+                          <div 
+                            className="w-full bg-violet-500 rounded-t"
+                            style={{ height: `${Math.max(4, (day.completed / (day.total || 1)) * 100)}%` }}
+                          />
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {new Date(day.date).toLocaleDateString('en', { weekday: 'short' })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Goals Progress</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {goals.length > 0 ? (
+                        <div className="space-y-2">
+                          {goals.slice(0, 3).map((goal) => (
+                            <div key={goal.id} className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <div className="text-sm font-medium truncate">{goal.title}</div>
+                                <Progress value={goal.progress} className="h-2 mt-1" />
+                              </div>
+                              <span className="text-sm font-bold">{goal.progress}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No goals yet</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Habit Streaks</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {habits.length > 0 ? (
+                        <div className="space-y-2">
+                          {habits.slice(0, 3).map((habit) => (
+                            <div key={habit.id} className="flex items-center justify-between">
+                              <span className="text-sm font-medium truncate">{habit.title}</span>
+                              <div className="flex items-center gap-1">
+                                <Flame className="h-4 w-4 text-orange-500" />
+                                <span className="text-sm font-bold">{habit.streak}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No habits yet</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                <Card className="mb-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Tasks by Category</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {Object.entries(stats.tasksByCategory).map(([category, count]) => (
+                        <div key={category} className="flex items-center gap-2">
+                          <Badge variant="outline">{category}</Badge>
+                          <Progress value={(count / stats.totalTasks) * 100} className="flex-1 h-2" />
+                          <span className="text-sm">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card className="mb-4 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-200">
+                <CardContent className="p-6 text-center">
+                  <Sparkles className="h-8 w-8 mx-auto mb-2 text-violet-500" />
+                  <h3 className="font-semibold mb-1">Upgrade to Pro</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Get advanced analytics, weekly trends, goal tracking, and habit streaks
+                  </p>
+                  <Button size="sm" onClick={() => setActiveTab('pricing')}>
+                    View Plans
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         );
 
