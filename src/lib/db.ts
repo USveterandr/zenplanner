@@ -282,6 +282,102 @@ export async function updateSubscription(env: Env, userId: string, tier: string)
   ).bind(tier, userId).run();
 }
 
+export async function updateSubscriptionWithLemonSqueezy(env: Env, userId: string, data: {
+  customerId?: string;
+  subscriptionId?: string;
+  tier: string;
+  status?: string;
+  renewsAt?: string;
+  endsAt?: string;
+}) {
+  const fields: string[] = ["tier = ?"];
+  const values: any[] = [data.tier];
+  
+  if (data.customerId) {
+    fields.push("customerId = ?");
+    values.push(data.customerId);
+  }
+  if (data.subscriptionId) {
+    fields.push("subscriptionId = ?");
+    values.push(data.subscriptionId);
+  }
+  if (data.status) {
+    fields.push("status = ?");
+    values.push(data.status);
+  }
+  if (data.renewsAt) {
+    fields.push("renewsAt = ?");
+    values.push(data.renewsAt);
+  }
+  if (data.endsAt) {
+    fields.push("endsAt = ?");
+    values.push(data.endsAt);
+  }
+  
+  values.push(userId);
+  
+  await env.zen_planner_db.prepare(
+    `UPDATE Subscription SET ${fields.join(", ")} WHERE userId = ?`
+  ).bind(...values).run();
+}
+
+// AI Usage functions
+export async function getAIUsage(env: Env, userId: string, month: string) {
+  const result = await env.zen_planner_db.prepare(
+    "SELECT * FROM AIUsage WHERE userId = ? AND month = ?"
+  ).bind(userId, month).first();
+  return result;
+}
+
+export async function incrementAIUsage(env: Env, userId: string, month: string) {
+  const existing = await getAIUsage(env, userId, month);
+  if (existing) {
+    await env.zen_planner_db.prepare(
+      "UPDATE AIUsage SET count = count + 1 WHERE userId = ? AND month = ?"
+    ).bind(userId, month).run();
+  } else {
+    await env.zen_planner_db.prepare(
+      "INSERT INTO AIUsage (id, userId, month, count) VALUES (?, ?, ?, 1)"
+    ).bind(generateId(), userId, month).run();
+  }
+}
+
+// Team Member functions
+export async function getTeamMembers(env: Env, userId: string) {
+  const result = await env.zen_planner_db.prepare(
+    "SELECT * FROM TeamMember WHERE ownerId = ? OR userId = ? ORDER BY joinedAt DESC"
+  ).bind(userId, userId).all();
+  return (result.results || []);
+}
+
+export async function addTeamMember(env: Env, ownerId: string, member: { name: string; email: string; role: string }) {
+  const id = generateId();
+  await env.zen_planner_db.prepare(`
+    INSERT INTO TeamMember (id, ownerId, name, email, role, joinedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(id, ownerId, member.name, member.email, member.role, new Date().toISOString()).run();
+  return { id, ...member, joinedAt: new Date().toISOString() };
+}
+
+export async function removeTeamMember(env: Env, id: string) {
+  await env.zen_planner_db.prepare("DELETE FROM TeamMember WHERE id = ?").bind(id).run();
+}
+
+export async function updateTeamMember(env: Env, id: string, updates: { name?: string; email?: string; role?: string }) {
+  const fields: string[] = [];
+  const values: any[] = [];
+  
+  if (updates.name) { fields.push("name = ?"); values.push(updates.name); }
+  if (updates.email) { fields.push("email = ?"); values.push(updates.email); }
+  if (updates.role) { fields.push("role = ?"); values.push(updates.role); }
+  
+  values.push(id);
+  
+  await env.zen_planner_db.prepare(
+    `UPDATE TeamMember SET ${fields.join(", ")} WHERE id = ?`
+  ).bind(...values).run();
+}
+
 // Storage functions for R2
 export async function uploadFile(env: Env, key: string, body: ArrayBuffer, contentType: string) {
   await env.zen_planner_storage.put(key, body, { httpMetadata: { contentType } });

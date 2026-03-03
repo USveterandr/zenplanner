@@ -83,6 +83,138 @@ export interface Reminder {
 
 export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
 
+export interface SubscriptionLimits {
+  maxGoals: number;
+  maxHabits: number;
+  aiMessagesPerMonth: number;
+  hasAdvancedAnalytics: boolean;
+  hasSmartReminders: boolean;
+  hasTeamCollaboration: boolean;
+  hasSharedCalendars: boolean;
+  hasAdminDashboard: boolean;
+  hasApiAccess: boolean;
+  hasCustomIntegrations: boolean;
+  hasWhiteLabel: boolean;
+  hasSSO: boolean;
+  hasDedicatedSupport: boolean;
+  hasSLA: boolean;
+  maxTeamMembers: number;
+}
+
+export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
+  free: {
+    maxGoals: 3,
+    maxHabits: 3,
+    aiMessagesPerMonth: 10,
+    hasAdvancedAnalytics: false,
+    hasSmartReminders: false,
+    hasTeamCollaboration: false,
+    hasSharedCalendars: false,
+    hasAdminDashboard: false,
+    hasApiAccess: false,
+    hasCustomIntegrations: false,
+    hasWhiteLabel: false,
+    hasSSO: false,
+    hasDedicatedSupport: false,
+    hasSLA: false,
+    maxTeamMembers: 1,
+  },
+  starter: {
+    maxGoals: 5,
+    maxHabits: 10,
+    aiMessagesPerMonth: 50,
+    hasAdvancedAnalytics: false,
+    hasSmartReminders: true,
+    hasTeamCollaboration: false,
+    hasSharedCalendars: false,
+    hasAdminDashboard: false,
+    hasApiAccess: false,
+    hasCustomIntegrations: false,
+    hasWhiteLabel: false,
+    hasSSO: false,
+    hasDedicatedSupport: false,
+    hasSLA: false,
+    maxTeamMembers: 1,
+  },
+  pro: {
+    maxGoals: -1, // unlimited
+    maxHabits: -1,
+    aiMessagesPerMonth: 200,
+    hasAdvancedAnalytics: true,
+    hasSmartReminders: true,
+    hasTeamCollaboration: false,
+    hasSharedCalendars: false,
+    hasAdminDashboard: false,
+    hasApiAccess: false,
+    hasCustomIntegrations: false,
+    hasWhiteLabel: false,
+    hasSSO: false,
+    hasDedicatedSupport: false,
+    hasSLA: false,
+    maxTeamMembers: 1,
+  },
+  business: {
+    maxGoals: -1,
+    maxHabits: -1,
+    aiMessagesPerMonth: 500,
+    hasAdvancedAnalytics: true,
+    hasSmartReminders: true,
+    hasTeamCollaboration: true,
+    hasSharedCalendars: true,
+    hasAdminDashboard: true,
+    hasApiAccess: true,
+    hasCustomIntegrations: true,
+    hasWhiteLabel: false,
+    hasSSO: false,
+    hasDedicatedSupport: false,
+    hasSLA: false,
+    maxTeamMembers: 10,
+  },
+  enterprise: {
+    maxGoals: -1,
+    maxHabits: -1,
+    aiMessagesPerMonth: -1, // unlimited
+    hasAdvancedAnalytics: true,
+    hasSmartReminders: true,
+    hasTeamCollaboration: true,
+    hasSharedCalendars: true,
+    hasAdminDashboard: true,
+    hasApiAccess: true,
+    hasCustomIntegrations: true,
+    hasWhiteLabel: true,
+    hasSSO: true,
+    hasDedicatedSupport: true,
+    hasSLA: true,
+    maxTeamMembers: -1, // unlimited
+  },
+};
+
+export function getPlanLimits(tier: SubscriptionTier): SubscriptionLimits {
+  return SUBSCRIPTION_LIMITS[tier];
+}
+
+export function canUseFeature(tier: SubscriptionTier, feature: keyof SubscriptionLimits): boolean {
+  const limits = SUBSCRIPTION_LIMITS[tier];
+  const value = limits[feature];
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  return false;
+}
+
+export function getRemainingAIQuota(tier: SubscriptionTier, used: number): number {
+  const limit = SUBSCRIPTION_LIMITS[tier].aiMessagesPerMonth;
+  if (limit === -1) return -1; // unlimited
+  return Math.max(0, limit - used);
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'member';
+  joinedAt: string;
+}
+
 export interface UserAccount {
   id: string;
   name: string;
@@ -169,11 +301,26 @@ interface AppState {
   chatMessages: ChatMessage[];
   reminders: Reminder[];
   subscription: SubscriptionTier;
+  aiUsageThisMonth: number;
+  aiUsageResetDate: string;
+  teamMembers: TeamMember[];
   activeTab: string;
   selectedDate: string;
   _hasHydrated: boolean;
   isLoading: boolean;
   setHasHydrated: (state: boolean) => void;
+  
+  // Feature checks
+  canAddGoal: () => boolean;
+  canAddHabit: () => boolean;
+  canUseAI: () => boolean;
+  getRemainingAIQuota: () => number;
+  incrementAIUsage: () => void;
+  
+  // Team management
+  addTeamMember: (member: Omit<TeamMember, 'id' | 'joinedAt'>) => Promise<void>;
+  removeTeamMember: (id: string) => Promise<void>;
+  updateTeamMember: (id: string, updates: Partial<TeamMember>) => Promise<void>;
   
   signUp: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -223,11 +370,96 @@ export const useAppStore = create<AppState>()(
       chatMessages: [],
       reminders: [],
       subscription: 'free',
+      aiUsageThisMonth: 0,
+      aiUsageResetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+      teamMembers: [],
       activeTab: 'tasks',
       selectedDate: new Date().toISOString().split('T')[0],
       _hasHydrated: false,
       isLoading: false,
       setHasHydrated: (state) => set({ _hasHydrated: state }),
+
+      canAddGoal: () => {
+        const { goals, subscription } = get();
+        const limits = SUBSCRIPTION_LIMITS[subscription];
+        if (limits.maxGoals === -1) return true;
+        return goals.length < limits.maxGoals;
+      },
+
+      canAddHabit: () => {
+        const { habits, subscription } = get();
+        const limits = SUBSCRIPTION_LIMITS[subscription];
+        if (limits.maxHabits === -1) return true;
+        return habits.length < limits.maxHabits;
+      },
+
+      canUseAI: () => {
+        const { subscription, aiUsageThisMonth, aiUsageResetDate } = get();
+        const now = new Date();
+        
+        // Reset usage if new month
+        if (now.toISOString() >= aiUsageResetDate) {
+          set({ aiUsageThisMonth: 0, aiUsageResetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString() });
+        }
+        
+        const limits = SUBSCRIPTION_LIMITS[subscription];
+        if (limits.aiMessagesPerMonth === -1) return true;
+        return aiUsageThisMonth < limits.aiMessagesPerMonth;
+      },
+
+      getRemainingAIQuota: () => {
+        const { subscription, aiUsageThisMonth, aiUsageResetDate } = get();
+        const now = new Date();
+        
+        if (now.toISOString() >= aiUsageResetDate) {
+          return SUBSCRIPTION_LIMITS[subscription].aiMessagesPerMonth;
+        }
+        
+        const limit = SUBSCRIPTION_LIMITS[subscription].aiMessagesPerMonth;
+        if (limit === -1) return -1;
+        return Math.max(0, limit - aiUsageThisMonth);
+      },
+
+      incrementAIUsage: () => {
+        const { subscription, aiUsageThisMonth, aiUsageResetDate } = get();
+        const now = new Date();
+        
+        if (now.toISOString() >= aiUsageResetDate) {
+          set({ aiUsageThisMonth: 1, aiUsageResetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString() });
+        } else {
+          set({ aiUsageThisMonth: aiUsageThisMonth + 1 });
+        }
+      },
+
+      addTeamMember: async (member) => {
+        const { user, subscription, teamMembers } = get();
+        if (!user) return;
+        
+        const limits = SUBSCRIPTION_LIMITS[subscription];
+        if (limits.maxTeamMembers !== -1 && teamMembers.length >= limits.maxTeamMembers) {
+          throw new Error('Team member limit reached');
+        }
+        
+        const newMember: TeamMember = {
+          ...member,
+          id: crypto.randomUUID(),
+          joinedAt: new Date().toISOString(),
+        };
+        
+        set({ teamMembers: [...teamMembers, newMember] });
+        
+        // TODO: Sync with backend
+      },
+
+      removeTeamMember: async (id) => {
+        const { teamMembers } = get();
+        set({ teamMembers: teamMembers.filter(m => m.id !== id) });
+      },
+
+      updateTeamMember: async (id, updates) => {
+        const { teamMembers } = get();
+        set({ teamMembers: teamMembers.map(m => m.id === id ? { ...m, ...updates } : m) });
+      },
 
       signUp: async (name, email, password) => {
         try {

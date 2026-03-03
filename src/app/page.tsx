@@ -135,8 +135,34 @@ export default function Home() {
     setAuthEmail(''); setAuthPassword('');
   };
 
-  const handleSelectPlan = (tier: SubscriptionTier) => {
-    selectPlan(tier);
+  const handleSelectPlan = async (tier: SubscriptionTier) => {
+    if (!user || tier === 'free') {
+      selectPlan(tier);
+      return;
+    }
+    
+    // For paid plans, create Lemon Squeezy checkout
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          plan: tier,
+          email: user.email,
+          name: user.name,
+        }),
+      });
+      const result = await response.json();
+      if (result.success && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+      } else {
+        alert('Failed to create checkout. Please try again.');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Failed to create checkout. Please try again.');
+    }
   };
 
   // Quick add handlers for calendar
