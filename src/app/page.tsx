@@ -8,7 +8,7 @@ import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
   Loader2, Flame, ChevronLeft, ChevronRight, Bell,
-  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock
+  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,8 @@ const tabs = [
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'habits', label: 'Habits', icon: Zap },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'team', label: 'Team', icon: Users },
+  { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'pricing', label: 'Upgrade', icon: Crown },
 ];
 
@@ -51,7 +53,7 @@ export default function Home() {
     addGoal, addHabit, toggleHabitCompletion, addChatMessage, chatMessages,
     _hasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
     subscription, setSubscription, user, signUp, signIn, signOut,
-    subscriptionInfo, selectPlan
+    subscriptionInfo, selectPlan, teamMembers, canAddGoal, canAddHabit
   } = useAppStore();
   
   const isMobile = useIsMobile();
@@ -74,6 +76,11 @@ export default function Home() {
   const [showQuickAddGoal, setShowQuickAddGoal] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [quickAddDate, setQuickAddDate] = useState('');
+  
+  // Team state
+  const [showInviteMember, setShowInviteMember] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
 
   // Auth form state
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
@@ -1116,6 +1123,149 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
+          </div>
+        );
+
+      case 'team':
+        const hasTeamFeatures = subscription === 'business' || subscription === 'enterprise';
+        const maxTeamMembers = subscription === 'enterprise' ? -1 : 10;
+        
+        return (
+          <div className="h-full flex flex-col p-4 overflow-auto">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-500" /> Team
+              {!hasTeamFeatures && <Badge variant="outline" className="text-xs ml-2">Business</Badge>}
+            </h2>
+            
+            {hasTeamFeatures ? (
+              <>
+                <Card className="mb-4">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm">Team Members</CardTitle>
+                      <Button size="sm" onClick={() => setShowInviteMember(true)}>
+                        <UserPlus className="h-4 w-4 mr-1" /> Invite
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {teamMembers.length > 0 ? (
+                      <div className="space-y-2">
+                        {teamMembers.map((member) => (
+                          <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-violet-500 rounded-full flex items-center justify-center">
+                                <User className="h-4 w-4 text-white" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium">{member.name}</div>
+                                <div className="text-xs text-muted-foreground">{member.email}</div>
+                              </div>
+                            </div>
+                            <Badge variant="outline">{member.role}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No team members yet. Invite your first team member!
+                      </p>
+                    )}
+                    <div className="mt-4 text-sm text-muted-foreground">
+                      {maxTeamMembers === -1 ? 'Unlimited' : `${10 - teamMembers.length} seats remaining`}
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Shared Calendar Access</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Team members can view and edit shared tasks and goals based on their role permissions.
+                    </p>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-200">
+                <CardContent className="p-6 text-center">
+                  <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+                  <h3 className="font-semibold mb-1">Upgrade to Business</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Invite team members, share calendars, and collaborate together
+                  </p>
+                  <Button size="sm" onClick={() => setActiveTab('pricing')}>
+                    View Plans
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+
+      case 'settings':
+        return (
+          <div className="h-full flex flex-col p-4 overflow-auto">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Settings className="h-5 w-5 text-gray-500" /> Settings
+            </h2>
+            
+            <Card className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Account</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-violet-500 rounded-full flex items-center justify-center">
+                    <User className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-medium">{user?.name}</div>
+                    <div className="text-sm text-muted-foreground">{user?.email}</div>
+                  </div>
+                </div>
+                
+                <div className="pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium">Current Plan</div>
+                      <div className="text-xs text-muted-foreground capitalize">{subscription}</div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => setActiveTab('pricing')}>
+                      Change Plan
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Data & Privacy</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button variant="outline" className="w-full justify-start" onClick={() => window.location.href = '/delete-account'}>
+                  <Trash2 className="h-4 w-4 mr-2" /> Delete Account
+                </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => window.location.href = '/privacy-policy'}>
+                  <Check className="h-4 w-4 mr-2" /> Privacy Policy
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">App Info</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-muted-foreground">
+                  <p>Zen Planner v1.0.0</p>
+                  <p className="mt-1">AI-Powered Productivity App</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         );
 
