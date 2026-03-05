@@ -463,16 +463,19 @@ export const useAppStore = create<AppState>()(
 
       signUp: async (name, email, password) => {
         try {
-          const result = await fetchAPI('/auth', { action: 'signup', name, email, password });
-          if (result.user) {
-            set({ 
-              user: { id: result.user.id, name: result.user.name, email: result.user.email },
-              subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
-            });
-            await get().loadUserData();
-            return { success: true };
+          const users = JSON.parse(localStorage.getItem('zenplanner_users') || '[]');
+          const existing = users.find((u: any) => u.email === email);
+          if (existing) {
+            return { success: false, error: 'Email already exists' };
           }
-          return { success: false, error: 'Signup failed' };
+          const newUser = { id: crypto.randomUUID(), name, email, password };
+          users.push(newUser);
+          localStorage.setItem('zenplanner_users', JSON.stringify(users));
+          set({ 
+            user: { id: newUser.id, name: newUser.name, email: newUser.email },
+            subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
+          });
+          return { success: true };
         } catch (error: any) {
           return { success: false, error: error.message };
         }
@@ -493,15 +496,15 @@ export const useAppStore = create<AppState>()(
         }
 
         try {
-          const result = await fetchAPI('/auth', { action: 'login', email, password });
-          if (result.user) {
+          const users = JSON.parse(localStorage.getItem('zenplanner_users') || '[]');
+          const user = users.find((u: any) => u.email === email && u.password === password);
+          if (user) {
             set({ 
-              user: { id: result.user.id, name: result.user.name, email: result.user.email },
+              user: { id: user.id, name: user.name, email: user.email },
             });
-            await get().loadUserData();
             return { success: true };
           }
-          return { success: false, error: 'Login failed' };
+          return { success: false, error: 'Invalid email or password' };
         } catch (error: any) {
           return { success: false, error: error.message };
         }
