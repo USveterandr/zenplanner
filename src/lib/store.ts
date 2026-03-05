@@ -463,19 +463,15 @@ export const useAppStore = create<AppState>()(
 
       signUp: async (name, email, password) => {
         try {
-          const users = JSON.parse(localStorage.getItem('zenplanner_users') || '[]');
-          const existing = users.find((u: any) => u.email === email);
-          if (existing) {
-            return { success: false, error: 'Email already exists' };
+          const result = await fetchAPI('/auth', { action: 'signup', name, email, password });
+          if (result.user) {
+            set({ 
+              user: { id: result.user.id, name: result.user.name, email: result.user.email },
+              subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
+            });
+            return { success: true };
           }
-          const newUser = { id: crypto.randomUUID(), name, email, password };
-          users.push(newUser);
-          localStorage.setItem('zenplanner_users', JSON.stringify(users));
-          set({ 
-            user: { id: newUser.id, name: newUser.name, email: newUser.email },
-            subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
-          });
-          return { success: true };
+          return { success: false, error: 'Signup failed' };
         } catch (error: any) {
           return { success: false, error: error.message };
         }
@@ -496,15 +492,14 @@ export const useAppStore = create<AppState>()(
         }
 
         try {
-          const users = JSON.parse(localStorage.getItem('zenplanner_users') || '[]');
-          const user = users.find((u: any) => u.email === email && u.password === password);
-          if (user) {
+          const result = await fetchAPI('/auth', { action: 'login', email, password });
+          if (result.user) {
             set({ 
-              user: { id: user.id, name: user.name, email: user.email },
+              user: { id: result.user.id, name: result.user.name, email: result.user.email },
             });
             return { success: true };
           }
-          return { success: false, error: 'Invalid email or password' };
+          return { success: false, error: 'Login failed' };
         } catch (error: any) {
           return { success: false, error: error.message };
         }
