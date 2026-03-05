@@ -29,7 +29,7 @@ const tabs = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'pricing', label: 'Upgrade', icon: Crown },
+  { id: 'pricing', label: 'About', icon: Crown },
 ];
 
 const priorityColors: Record<Priority, string> = {
@@ -143,33 +143,8 @@ export default function Home() {
   };
 
   const handleSelectPlan = async (tier: SubscriptionTier) => {
-    if (!user || tier === 'free') {
-      selectPlan(tier);
-      return;
-    }
-    
-    // For paid plans, create Lemon Squeezy checkout
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          plan: tier,
-          email: user.email,
-          name: user.name,
-        }),
-      });
-      const result = await response.json();
-      if (result.success && result.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-      } else {
-        alert('Failed to create checkout. Please try again.');
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-      alert('Failed to create checkout. Please try again.');
-    }
+    // All features are now free - just update the subscription
+    selectPlan(tier);
   };
 
   // Quick add handlers for calendar
@@ -352,13 +327,38 @@ export default function Home() {
     );
   }
 
+  // If logged in but no subscription selected, redirect to app (all free now)
+  if (subscription === 'free') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 p-4 flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
+            <Crown className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {user.name}!</h1>
+          <p className="text-muted-foreground mb-6">
+            All features are now free! Enjoy unlimited access to tasks, goals, habits, AI advisor, and more.
+          </p>
+          <Button
+            className="bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
+            size="lg"
+            onClick={() => setActiveTab('tasks')}
+          >
+            Get Started
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  /* Unused code - keeping for reference in case needed later
   // If logged in but no subscription selected, show plan selection
   if (subscription === 'free') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 p-4">
         <div className="max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8 pt-8">
+          {/* Header */
+          /* <div className="text-center mb-8 pt-8">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
               <Crown className="h-7 w-7 text-white" />
             </div>
@@ -366,10 +366,10 @@ export default function Home() {
             <p className="text-muted-foreground max-w-md mx-auto">
               Welcome, {user.name}! Select a plan to unlock all features and start your productivity journey.
             </p>
-          </div>
+          </div> */
 
-          {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          /* Plans Grid */
+          /* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {SUBSCRIPTION_PLANS.map((plan) => (
               <Card
                 key={plan.id}
@@ -576,110 +576,47 @@ export default function Home() {
   const renderPricing = () => (
     <div className="h-full flex flex-col p-4 overflow-auto">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold mb-2">Manage Your Plan</h2>
-        <p className="text-muted-foreground">Upgrade or change your subscription</p>
+        <h2 className="text-2xl font-bold mb-2">Zen Planner</h2>
+        <p className="text-muted-foreground">All features are free!</p>
       </div>
 
-      {/* Current plan status */}
-      {subscription !== 'free' && (
-        <Card className="mb-6 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-violet-500 p-2 rounded-lg">
-                  <Crown className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">
-                    {SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.name} Plan
-                  </h3>
-                  {trialActive ? (
-                    <p className="text-sm text-green-600 font-medium flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      Free trial - {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} remaining
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      ${SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.price}/month
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-300">
-                Active
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
-        {SUBSCRIPTION_PLANS.map((plan) => (
-          <Card
-            key={plan.id}
-            className={cn(
-              'relative flex flex-col',
-              plan.highlighted && 'border-violet-500 border-2 shadow-lg scale-105',
-              subscription === plan.id && 'ring-2 ring-violet-500'
-            )}
-          >
-            {plan.highlighted && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="bg-violet-500">Most Popular</Badge>
-              </div>
-            )}
-            {plan.hasTrial && subscription !== plan.id && (
-              <div className="absolute -top-3 right-3">
-                <Badge className="bg-green-500 text-xs">7-Day Trial</Badge>
-              </div>
-            )}
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-xl">{plan.name}</CardTitle>
-              <div className="mt-2">
-                <span className="text-4xl font-bold">${plan.price}</span>
-                <span className="text-muted-foreground">/month</span>
-              </div>
-              {plan.hasTrial && subscription !== plan.id && (
-                <p className="text-xs text-green-600 font-medium mt-1">
-                  Free for 7 days
-                </p>
-              )}
-            </CardHeader>
-            <CardContent className="flex-1">
-              <ul className="space-y-2">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
-                    <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button
-                className="w-full"
-                variant={plan.highlighted ? 'default' : 'outline'}
-                onClick={() => handleSelectPlan(plan.id)}
-                disabled={subscription === plan.id}
-              >
-                {subscription === plan.id ? (
-                  <>Current Plan</>
-                ) : plan.hasTrial ? (
-                  <>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Start Free Trial
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Subscribe
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+      <Card className="mb-6 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-200">
+        <CardContent className="p-6 text-center">
+          <div className="bg-violet-500 p-3 rounded-full inline-flex mb-4">
+            <Crown className="h-8 w-8 text-white" />
+          </div>
+          <h3 className="text-xl font-bold mb-2">Free Forever</h3>
+          <p className="text-muted-foreground mb-4">
+            Enjoy unlimited access to all features including:
+          </p>
+          <ul className="text-left space-y-2 max-w-sm mx-auto">
+            <li className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-500" />
+              <span>Unlimited tasks, goals & habits</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-500" />
+              <span>AI Advisor - unlimited messages</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-500" />
+              <span>Advanced analytics</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-500" />
+              <span>Team collaboration</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-500" />
+              <span>Smart reminders</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-500" />
+              <span>Calendar sync</span>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 
