@@ -7,7 +7,7 @@ import {
   Download, 
   Check, 
   ChevronRight,
-  Safari,
+  Globe,
   Settings,
   Plus,
   ArrowDown
@@ -66,7 +66,7 @@ export default function InstallPage() {
           <Card className="mb-6">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Safari className="h-5 w-5 text-violet-500" />
+                <Globe className="h-5 w-5 text-violet-500" />
                 iPhone / iPad Installation
               </h2>
               
