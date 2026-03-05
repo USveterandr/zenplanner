@@ -8,7 +8,7 @@ import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
   Loader2, Flame, ChevronLeft, ChevronRight, Bell,
-  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2
+  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ const tabs = [
   { id: 'team', label: 'Team', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'pricing', label: 'About', icon: Crown },
+  { id: 'install', label: 'Install', icon: Download },
 ];
 
 const priorityColors: Record<Priority, string> = {
@@ -1105,6 +1106,12 @@ export default function Home() {
 
       case 'pricing':
         return renderPricing();
+
+      case 'install':
+        if (typeof window !== 'undefined') {
+          window.location.href = '/install';
+        }
+        return null;
 
       default:
         return null;

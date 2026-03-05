@@ -176,3 +176,58 @@ All features are FREE!
 ## Minimum Requirements
 - Android 5.0+ (API 21)
 - Target: Android 15 (API 35)
+
+---
+
+## iOS Installation (Without App Store)
+
+There are two ways to install Zen Planner on iPhone/iPad without using the App Store:
+
+### Option 1: PWA - Add to Home Screen (Free, Recommended)
+
+This works without any Apple developer account:
+
+1. Open **https://zenplanner.isaactrinidadllc.workers.dev** in Safari
+2. Tap the **Share button** (square with arrow up)
+3. Scroll down and tap **"Add to Home Screen"**
+4. Tap **"Add"** in the top right
+
+**Features:**
+- Works offline
+- Native app experience
+- No certificate required
+- Instant installation
+
+**Direct Link:** https://zenplanner.isaactrinidadllc.workers.dev/install
+
+### Option 2: Apple Enterprise / Custom App (Requires Paid Account)
+
+To distribute without App Store review, you need:
+- **Apple Developer Enterprise Account** ($299/year)
+- An Apple certificate to sign the app
+- Your own distribution method ( MDM, direct link, etc.)
+
+Contact us if you need enterprise distribution.
+
+---
+
+## Creating Install Links
+
+Add these links to your website:
+
+```html
+<!-- Main App -->
+<a href="https://zenplanner.isaactrinidadllc.workers.dev">Open Zen Planner</a>
+
+<!-- Install Page -->
+<a href="https://zenplanner.isaactrinidadllc.workers.dev/install">Install Zen Planner</a>
+```
+
+---
+
+## Files Updated for iOS Support
+
+- ✅ `src/app/install/page.tsx` - Install instructions page
+- ✅ `src/app/layout.tsx` - iOS meta tags configured
+- ✅ `public/manifest.json` - PWA manifest ready
+- ✅ `public/apple-touch-icon.png` - iOS icon (180x180)
