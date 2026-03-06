@@ -469,6 +469,7 @@ export const useAppStore = create<AppState>()(
               user: { id: result.user.id, name: result.user.name, email: result.user.email },
               subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
             });
+            await get().loadUserData();
             return { success: true };
           }
           return { success: false, error: 'Signup failed' };
@@ -497,6 +498,7 @@ export const useAppStore = create<AppState>()(
             set({ 
               user: { id: result.user.id, name: result.user.name, email: result.user.email },
             });
+            await get().loadUserData();
             return { success: true };
           }
           return { success: false, error: 'Login failed' };

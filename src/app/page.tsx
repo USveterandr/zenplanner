@@ -87,6 +87,17 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('12h');
+
+  const formatTime = (time: string) => {
+    if (!time || timeFormat === '24h') return time;
+    const [hours, minutes] = time.split(':');
+    const h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
   const [authPassword, setAuthPassword] = useState('');
   const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -328,8 +339,8 @@ export default function Home() {
     );
   }
 
-  // If logged in but no subscription selected, redirect to app (all free now)
-  if (subscription === 'free') {
+  // Show onboarding welcome screen for new users
+  if (user && !showOnboarding && subscription === 'free') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 p-4 flex items-center justify-center">
         <div className="max-w-md mx-auto text-center">
@@ -343,7 +354,7 @@ export default function Home() {
           <Button
             className="bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
             size="lg"
-            onClick={() => setActiveTab('tasks')}
+            onClick={() => setShowOnboarding(true)}
           >
             Get Started
           </Button>
@@ -456,7 +467,7 @@ export default function Home() {
                   event.type === 'goal' && 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
                 )}
               >
-                {event.time && <span className="mr-1">{event.time}</span>}
+                {event.time && <span className="mr-1">{formatTime(event.time)}</span>}
                 {event.title}
               </div>
             ))}
@@ -579,7 +590,7 @@ export default function Home() {
                             {task.dueDate && (
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                {task.dueDate}{task.dueTime && ` ${task.dueTime}`}
+                                {task.dueDate}{task.dueTime && ` ${formatTime(task.dueTime)}`}
                               </span>
                             )}
                             {task.reminderMinutesBefore && (
@@ -659,7 +670,7 @@ export default function Home() {
                           {task.completed ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
                         </button>
                         <span className={cn(task.completed && 'line-through')}>{task.title}</span>
-                        {task.dueTime && <span className="text-muted-foreground text-xs">{task.dueTime}</span>}
+                        {task.dueTime && <span className="text-muted-foreground text-xs">{formatTime(task.dueTime)}</span>}
                       </div>
                     ))}
                   </div>
@@ -1070,6 +1081,36 @@ export default function Home() {
                     </div>
                     <Button size="sm" variant="outline" onClick={() => setActiveTab('pricing')}>
                       Change Plan
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Preferences</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium">Time Format</div>
+                    <div className="text-xs text-muted-foreground">Choose 12-hour or 24-hour format</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant={timeFormat === '12h' ? 'default' : 'outline'}
+                      onClick={() => setTimeFormat('12h')}
+                    >
+                      12h
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant={timeFormat === '24h' ? 'default' : 'outline'}
+                      onClick={() => setTimeFormat('24h')}
+                    >
+                      24h
                     </Button>
                   </div>
                 </div>
