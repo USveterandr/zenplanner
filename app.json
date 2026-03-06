@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "2b93802c-6332-4097-91b4-b4b46b67508b"
+      }
+    },
+    "android": {
+      "package": "com.drpower1.zenplanner"
+    }
+  }
+}

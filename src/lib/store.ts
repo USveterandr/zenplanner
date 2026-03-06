@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { detectSystemLocale } from './i18n';
+import type { Locale } from './i18n';
 
 const API_URL = '/api';
 
@@ -356,6 +358,10 @@ interface AppState {
   
   setActiveTab: (tab: string) => void;
   setSelectedDate: (date: string) => void;
+
+  // i18n
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -865,12 +871,25 @@ export const useAppStore = create<AppState>()(
 
       setActiveTab: (tab) => set({ activeTab: tab }),
       setSelectedDate: (date) => set({ selectedDate: date }),
+
+      locale: 'en' as Locale,
+      setLocale: (locale) => set({ locale }),
     }),
     {
       name: 'zen-planner-storage',
       storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
         state?.setHasHydrated(true);
+        // Auto-detect system language on first install (when no locale was persisted)
+        if (state) {
+          const raw = typeof window !== 'undefined'
+            ? window.localStorage.getItem('zen-planner-storage')
+            : null;
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (!parsed?.state?.locale) {
+            state.setLocale(detectSystemLocale());
+          }
+        }
         if (state?.user) {
           state.loadUserData();
         }
@@ -879,6 +898,7 @@ export const useAppStore = create<AppState>()(
         user: state.user,
         subscriptionInfo: state.subscriptionInfo,
         subscription: state.subscription,
+        locale: state.locale,
       }),
     }
   )

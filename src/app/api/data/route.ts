@@ -114,11 +114,13 @@ export async function POST(request: Request) {
         if (data.priority !== undefined) { fields.push("priority = ?"); values.push(data.priority); }
         if (data.dueDate !== undefined) { fields.push("dueDate = ?"); values.push(data.dueDate); }
         if (data.dueTime !== undefined) { fields.push("dueTime = ?"); values.push(data.dueTime); }
+        if (data.reminderMinutesBefore !== undefined) { fields.push("reminderMinutesBefore = ?"); values.push(data.reminderMinutesBefore); }
         if (data.category !== undefined) { fields.push("category = ?"); values.push(data.category); }
         if (data.subtasks !== undefined) { fields.push("subtasks = ?"); values.push(JSON.stringify(data.subtasks)); }
         if (data.order !== undefined) { fields.push("\"order\" = ?"); values.push(data.order); }
         
         if (fields.length > 0) {
+          fields.push("updatedAt = CURRENT_TIMESTAMP");
           values.push(id);
           await db.prepare(`UPDATE Task SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
         }
@@ -135,6 +137,7 @@ export async function POST(request: Request) {
         if (data.targetDate !== undefined) { fields.push("targetDate = ?"); values.push(data.targetDate); }
         
         if (fields.length > 0) {
+          fields.push("updatedAt = CURRENT_TIMESTAMP");
           values.push(id);
           await db.prepare(`UPDATE Goal SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
         }
@@ -152,6 +155,7 @@ export async function POST(request: Request) {
         if (data.bestStreak !== undefined) { fields.push("bestStreak = ?"); values.push(data.bestStreak); }
         
         if (fields.length > 0) {
+          fields.push("updatedAt = CURRENT_TIMESTAMP");
           values.push(id);
           await db.prepare(`UPDATE Habit SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
         }

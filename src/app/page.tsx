@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS, isTrialActive, getTrialDaysRemaining } from '@/lib/store';
 import type { Priority, SubscriptionTier } from '@/lib/store';
+import { SUPPORTED_LOCALES } from '@/lib/i18n';
+import { useTranslation } from '@/hooks/use-translation';
 import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
@@ -20,19 +22,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-const tabs = [
-  { id: 'tasks', label: 'Tasks', icon: ListTodo },
-  { id: 'calendar', label: 'Calendar', icon: Calendar },
-  { id: 'ai', label: 'AI Advisor', icon: Sparkles },
-  { id: 'goals', label: 'Goals', icon: Target },
-  { id: 'habits', label: 'Habits', icon: Zap },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { id: 'team', label: 'Team', icon: Users },
-  { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'pricing', label: 'About', icon: Crown },
-  { id: 'install', label: 'Install', icon: Download },
-];
-
 const priorityColors: Record<Priority, string> = {
   high: 'bg-red-500 hover:bg-red-600',
   medium: 'bg-amber-500 hover:bg-amber-600',
@@ -45,7 +34,7 @@ const priorityTextColors: Record<Priority, string> = {
   low: 'text-green-500',
 };
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAYS_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function Home() {
@@ -54,8 +43,24 @@ export default function Home() {
     addGoal, addHabit, toggleHabitCompletion, addChatMessage, chatMessages,
     _hasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
     subscription, setSubscription, user, signUp, signIn, signOut,
-    subscriptionInfo, selectPlan, teamMembers, canAddGoal, canAddHabit
+    subscriptionInfo, selectPlan, teamMembers, canAddGoal, canAddHabit,
+    setLocale, locale,
   } = useAppStore();
+  
+  const { tr, t } = useTranslation();
+
+  const tabs = [
+    { id: 'tasks', label: tr.tasks, icon: ListTodo },
+    { id: 'calendar', label: tr.calendar, icon: Calendar },
+    { id: 'ai', label: tr.aiAdvisor, icon: Sparkles },
+    { id: 'goals', label: tr.goals, icon: Target },
+    { id: 'habits', label: tr.habits, icon: Zap },
+    { id: 'analytics', label: tr.analytics, icon: BarChart3 },
+    { id: 'team', label: tr.team, icon: Users },
+    { id: 'settings', label: tr.settings, icon: Settings },
+    { id: 'pricing', label: tr.about, icon: Crown },
+    { id: 'install', label: tr.install, icon: Download },
+  ];
   
   const isMobile = useIsMobile();
 
@@ -126,31 +131,31 @@ export default function Home() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading Zen Planner...</p>
+          <p className="text-muted-foreground">{tr.loading}</p>
         </div>
       </div>
     );
   }
 
   // Auth handlers
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     setAuthError('');
-    if (!authName.trim()) { setAuthError('Name is required.'); return; }
-    if (!authEmail.trim()) { setAuthError('Email is required.'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail)) { setAuthError('Please enter a valid email address.'); return; }
-    if (authPassword.length < 6) { setAuthError('Password must be at least 6 characters.'); return; }
-    if (authPassword !== authConfirmPassword) { setAuthError('Passwords do not match.'); return; }
-    const result = signUp(authName.trim(), authEmail.trim().toLowerCase(), authPassword);
-    if (!result.success) { setAuthError(result.error || 'Sign up failed.'); return; }
+    if (!authName.trim()) { setAuthError(tr.nameRequired); return; }
+    if (!authEmail.trim()) { setAuthError(tr.emailRequired); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail)) { setAuthError(tr.validEmail); return; }
+    if (authPassword.length < 6) { setAuthError(tr.passwordLength); return; }
+    if (authPassword !== authConfirmPassword) { setAuthError(tr.passwordsNoMatch); return; }
+    const result = await signUp(authName.trim(), authEmail.trim().toLowerCase(), authPassword);
+    if (!result.success) { setAuthError(result.error || tr.signUpFailed); return; }
     setAuthName(''); setAuthEmail(''); setAuthPassword(''); setAuthConfirmPassword('');
   };
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     setAuthError('');
-    if (!authEmail.trim()) { setAuthError('Email is required.'); return; }
-    if (!authPassword.trim()) { setAuthError('Password is required.'); return; }
-    const result = signIn(authEmail.trim().toLowerCase(), authPassword);
-    if (!result.success) { setAuthError(result.error || 'Sign in failed.'); return; }
+    if (!authEmail.trim()) { setAuthError(tr.emailRequired); return; }
+    if (!authPassword.trim()) { setAuthError(tr.passwordRequired); return; }
+    const result = await signIn(authEmail.trim().toLowerCase(), authPassword);
+    if (!result.success) { setAuthError(result.error || tr.signInFailed); return; }
     setAuthEmail(''); setAuthPassword('');
   };
 
@@ -208,19 +213,17 @@ export default function Home() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
               <CheckCircle2 className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Zen Planner</h1>
-            <p className="text-muted-foreground mt-1">AI-Powered Productivity</p>
+            <h1 className="text-3xl font-bold text-gray-900">{tr.appName}</h1>
+            <p className="text-muted-foreground mt-1">{tr.appTagline}</p>
           </div>
 
           <Card className="shadow-xl border-0">
             <CardHeader className="text-center pb-2">
               <CardTitle className="text-xl">
-                {authMode === 'signup' ? 'Create Your Account' : 'Welcome Back'}
+                {authMode === 'signup' ? tr.createAccount : tr.welcomeBack}
               </CardTitle>
               <CardDescription>
-                {authMode === 'signup'
-                  ? 'Start your productivity journey today'
-                  : 'Sign in to continue where you left off'}
+                {authMode === 'signup' ? tr.startJourney : tr.continueWhereLeft}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -232,7 +235,7 @@ export default function Home() {
 
               {authMode === 'signup' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Full Name</label>
+                  <label className="text-sm font-medium text-gray-700">{tr.fullName}</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -246,7 +249,7 @@ export default function Home() {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Email Address</label>
+                <label className="text-sm font-medium text-gray-700">{tr.emailAddress}</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -261,12 +264,12 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Password</label>
+                <label className="text-sm font-medium text-gray-700">{tr.password}</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type={showPassword ? 'text' : 'password'}
-                    placeholder={authMode === 'signup' ? 'At least 6 characters' : 'Enter your password'}
+                    placeholder={authMode === 'signup' ? tr.atLeast6Chars : tr.enterYourPassword}
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (authMode === 'signin' ? handleSignIn() : undefined)}
@@ -284,12 +287,12 @@ export default function Home() {
 
               {authMode === 'signup' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Confirm Password</label>
+                  <label className="text-sm font-medium text-gray-700">{tr.confirmPassword}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Confirm your password"
+                      placeholder={tr.confirmYourPassword}
                       value={authConfirmPassword}
                       onChange={(e) => setAuthConfirmPassword(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSignUp()}
@@ -305,24 +308,24 @@ export default function Home() {
                 onClick={authMode === 'signup' ? handleSignUp : handleSignIn}
               >
                 {authMode === 'signup' ? (
-                  <><UserPlus className="h-4 w-4 mr-2" /> Create Account</>
+                  <><UserPlus className="h-4 w-4 mr-2" /> {tr.createAccountBtn}</>
                 ) : (
-                  <><LogIn className="h-4 w-4 mr-2" /> Sign In</>
+                  <><LogIn className="h-4 w-4 mr-2" /> {tr.signIn}</>
                 )}
               </Button>
             </CardContent>
             <CardFooter className="justify-center">
               <p className="text-sm text-muted-foreground">
                 {authMode === 'signup' ? (
-                  <>Already have an account?{' '}
+                  <>{tr.alreadyHaveAccount}{' '}
                     <button onClick={() => { setAuthMode('signin'); setAuthError(''); }} className="text-violet-600 hover:text-violet-700 font-medium">
-                      Sign In
+                      {tr.signIn}
                     </button>
                   </>
                 ) : (
-                  <>Don&apos;t have an account?{' '}
+                  <>{tr.dontHaveAccount}{' '}
                     <button onClick={() => { setAuthMode('signup'); setAuthError(''); }} className="text-violet-600 hover:text-violet-700 font-medium">
-                      Sign Up
+                      {tr.signUp}
                     </button>
                   </>
                 )}
@@ -331,8 +334,8 @@ export default function Home() {
           </Card>
 
           <p className="text-center text-xs text-muted-foreground mt-6">
-            By creating an account, you agree to our{' '}
-            <a href="/privacy-policy" className="text-violet-600 hover:underline">Privacy Policy</a>.
+            {tr.privacyPolicyAgree}{' '}
+            <a href="/privacy-policy" className="text-violet-600 hover:underline">{tr.privacyPolicy}</a>.
           </p>
         </div>
       </div>
@@ -347,16 +350,14 @@ export default function Home() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
             <Crown className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {user.name}!</h1>
-          <p className="text-muted-foreground mb-6">
-            All features are now free! Enjoy unlimited access to tasks, goals, habits, AI advisor, and more.
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('welcomeUser', { name: user.name })}</h1>
+          <p className="text-muted-foreground mb-6">{tr.allFeaturesFreeLine}</p>
           <Button
             className="bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
             size="lg"
             onClick={() => setShowOnboarding(true)}
           >
-            Get Started
+            {tr.getStarted}
           </Button>
         </div>
       </div>
@@ -415,10 +416,10 @@ export default function Home() {
       if (data.success) {
         addChatMessage({ role: 'assistant', content: data.response });
       } else {
-        addChatMessage({ role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' });
+        addChatMessage({ role: 'assistant', content: tr.errorTryAgain });
       }
     } catch {
-      addChatMessage({ role: 'assistant', content: 'Connection error. Please try again.' });
+      addChatMessage({ role: 'assistant', content: tr.connectionError });
     } finally {
       setIsAiLoading(false);
     }
@@ -485,8 +486,8 @@ export default function Home() {
   const renderPricing = () => (
     <div className="h-full flex flex-col p-4 overflow-auto">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold mb-2">Zen Planner</h2>
-        <p className="text-muted-foreground">All features are free!</p>
+        <h2 className="text-2xl font-bold mb-2">{tr.appName}</h2>
+        <p className="text-muted-foreground">{tr.allFeaturesFree}</p>
       </div>
 
       <Card className="mb-6 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-200">
@@ -494,34 +495,32 @@ export default function Home() {
           <div className="bg-violet-500 p-3 rounded-full inline-flex mb-4">
             <Crown className="h-8 w-8 text-white" />
           </div>
-          <h3 className="text-xl font-bold mb-2">Free Forever</h3>
-          <p className="text-muted-foreground mb-4">
-            Enjoy unlimited access to all features including:
-          </p>
+          <h3 className="text-xl font-bold mb-2">{tr.freeForever}</h3>
+          <p className="text-muted-foreground mb-4">{tr.enjoyUnlimited}</p>
           <ul className="text-left space-y-2 max-w-sm mx-auto">
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-green-500" />
-              <span>Unlimited tasks, goals & habits</span>
+              <span>{tr.unlimitedTasksGoalsHabits}</span>
             </li>
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-green-500" />
-              <span>AI Advisor - unlimited messages</span>
+              <span>{tr.aiAdvisorUnlimited}</span>
             </li>
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-green-500" />
-              <span>Advanced analytics</span>
+              <span>{tr.advancedAnalytics}</span>
             </li>
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-green-500" />
-              <span>Team collaboration</span>
+              <span>{tr.teamCollaboration}</span>
             </li>
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-green-500" />
-              <span>Smart reminders</span>
+              <span>{tr.smartReminders}</span>
             </li>
             <li className="flex items-center gap-2">
               <Check className="h-4 w-4 text-green-500" />
-              <span>Calendar sync</span>
+              <span>{tr.calendarSync}</span>
             </li>
           </ul>
         </CardContent>
@@ -535,24 +534,24 @@ export default function Home() {
         return (
           <div className="h-full flex flex-col p-4">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <ListTodo className="h-5 w-5 text-violet-500" /> Tasks
+              <ListTodo className="h-5 w-5 text-violet-500" /> {tr.tasks}
               {dueReminders.length > 0 && (
                 <Badge variant="destructive" className="ml-2 animate-pulse">
                   <Bell className="h-3 w-3 mr-1" />
-                  {dueReminders.length} due
+                  {dueReminders.length} {tr.due}
                 </Badge>
               )}
             </h2>
 
             <div className="flex gap-2 mb-2">
-              <Input placeholder="Add a new task..." value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddTask()} className="flex-1" />
+              <Input placeholder={tr.addNewTask} value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddTask()} className="flex-1" />
               <Button onClick={handleAddTask}><Plus className="h-4 w-4" /></Button>
             </div>
 
             <div className="flex gap-2 mb-2 flex-wrap">
               {(['high', 'medium', 'low'] as const).map((p) => (
                 <Button key={p} variant={taskPriority === p ? 'default' : 'outline'} size="sm" onClick={() => setTaskPriority(p)} className={cn(taskPriority === p && priorityColors[p])}>
-                  <Flag className="h-3 w-3 mr-1" />{p}
+                  <Flag className="h-3 w-3 mr-1" />{tr[p]}
                 </Button>
               ))}
             </div>
@@ -565,12 +564,12 @@ export default function Home() {
                 onChange={(e) => setTaskReminder(Number(e.target.value))}
                 className="flex h-9 w-32 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
               >
-                <option value={0}>No reminder</option>
-                <option value={5}>5 min before</option>
-                <option value={15}>15 min before</option>
-                <option value={30}>30 min before</option>
-                <option value={60}>1 hour before</option>
-                <option value={1440}>1 day before</option>
+                <option value={0}>{tr.noReminder}</option>
+                <option value={5}>{tr.min5Before}</option>
+                <option value={15}>{tr.min15Before}</option>
+                <option value={30}>{tr.min30Before}</option>
+                <option value={60}>{tr.hour1Before}</option>
+                <option value={1440}>{tr.day1Before}</option>
               </select>
             </div>
 
@@ -609,7 +608,7 @@ export default function Home() {
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {tasks.length === 0 && <div className="text-center py-8 text-muted-foreground">No tasks yet. Add your first task above!</div>}
+                {tasks.length === 0 && <div className="text-center py-8 text-muted-foreground">{tr.noTasksYet}</div>}
               </div>
             </ScrollArea>
           </div>
@@ -620,14 +619,14 @@ export default function Home() {
           <div className="h-full flex flex-col p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-violet-500" /> Calendar
+                <Calendar className="h-5 w-5 text-violet-500" /> {tr.calendar}
               </h2>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => openQuickAddTask(selectedDate || today)}>
-                  <Plus className="h-4 w-4 mr-1" /> Add Task
+                  <Plus className="h-4 w-4 mr-1" /> {tr.addTask}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => openQuickAddGoal(selectedDate || today)}>
-                  <Target className="h-4 w-4 mr-1" /> Add Goal
+                  <Target className="h-4 w-4 mr-1" /> {tr.addGoal}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => {
                   if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); }
@@ -646,7 +645,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-2">
-              {DAYS.map((day) => (
+              {DAYS_KEYS.map((day) => (
                 <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">{day}</div>
               ))}
             </div>
@@ -659,7 +658,7 @@ export default function Home() {
               <Card className="mt-4">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">
-                    {selectedDate === today ? 'Today' : selectedDate} - {selectedDateTasks.length} task(s)
+                    {selectedDate === today ? tr.today : selectedDate} - {selectedDateTasks.length} {tr.taskCount}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -684,14 +683,14 @@ export default function Home() {
         return (
           <div className="h-full flex flex-col p-4">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-violet-500" /> AI Advisor
+              <Sparkles className="h-5 w-5 text-violet-500" /> {tr.aiAdvisor}
             </h2>
             <ScrollArea className="flex-1 mb-4">
               <div className="space-y-4">
                 {chatMessages.length === 0 ? (
                   <div className="text-center py-8">
                     <Bot className="h-12 w-12 text-violet-500 mx-auto mb-4" />
-                    <p className="text-muted-foreground">Hi! I'm your AI productivity advisor. Ask me anything!</p>
+                    <p className="text-muted-foreground">{tr.aiGreeting}</p>
                   </div>
                 ) : (
                   chatMessages.map((msg) => (
@@ -716,7 +715,7 @@ export default function Home() {
               </div>
             </ScrollArea>
             <div className="flex gap-2">
-              <Input placeholder="Ask AI for advice..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()} disabled={isAiLoading} />
+              <Input placeholder={tr.askAiPlaceholder} value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()} disabled={isAiLoading} />
               <Button onClick={sendChatMessage} disabled={isAiLoading || !chatInput.trim()}><Send className="h-4 w-4" /></Button>
             </div>
           </div>
@@ -726,10 +725,10 @@ export default function Home() {
         return (
           <div className="h-full flex flex-col p-4">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Target className="h-5 w-5 text-amber-500" /> Goals
+              <Target className="h-5 w-5 text-amber-500" /> {tr.goals}
             </h2>
             <div className="flex gap-2 mb-4">
-              <Input placeholder="Add a new goal..." value={newGoal} onChange={(e) => setNewGoal(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddGoal()} className="flex-1" />
+              <Input placeholder={tr.addNewGoal} value={newGoal} onChange={(e) => setNewGoal(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddGoal()} className="flex-1" />
               <Button onClick={handleAddGoal}><Plus className="h-4 w-4" /></Button>
             </div>
             <ScrollArea className="flex-1">
@@ -745,7 +744,7 @@ export default function Home() {
                     </CardContent>
                   </Card>
                 ))}
-                {goals.length === 0 && <div className="text-center py-8 text-muted-foreground">No goals yet. Set your first goal above!</div>}
+                {goals.length === 0 && <div className="text-center py-8 text-muted-foreground">{tr.noGoalsYet}</div>}
               </div>
             </ScrollArea>
           </div>
@@ -755,10 +754,10 @@ export default function Home() {
         return (
           <div className="h-full flex flex-col p-4">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Zap className="h-5 w-5 text-green-500" /> Habits
+              <Zap className="h-5 w-5 text-green-500" /> {tr.habits}
             </h2>
             <div className="flex gap-2 mb-4">
-              <Input placeholder="Add a new habit..." value={newHabit} onChange={(e) => setNewHabit(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddHabit()} className="flex-1" />
+              <Input placeholder={tr.addNewHabit} value={newHabit} onChange={(e) => setNewHabit(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddHabit()} className="flex-1" />
               <Button onClick={handleAddHabit}><Plus className="h-4 w-4" /></Button>
             </div>
             <ScrollArea className="flex-1">
@@ -787,7 +786,7 @@ export default function Home() {
                     </Card>
                   );
                 })}
-                {habits.length === 0 && <div className="text-center py-8 text-muted-foreground">No habits yet. Start tracking your first habit above!</div>}
+                {habits.length === 0 && <div className="text-center py-8 text-muted-foreground">{tr.noHabitsYet}</div>}
               </div>
             </ScrollArea>
           </div>
@@ -799,7 +798,7 @@ export default function Home() {
         return (
           <div className="h-full flex flex-col p-4 overflow-auto">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-500" /> Analytics
+              <BarChart3 className="h-5 w-5 text-blue-500" /> {tr.analytics}
               {!hasAdvancedAnalytics && (
                 <Badge variant="outline" className="text-xs ml-2">Pro</Badge>
               )}
@@ -810,31 +809,31 @@ export default function Home() {
               <Card className="bg-gradient-to-br from-violet-500/20 to-indigo-500/20">
                 <CardContent className="p-4">
                   <div className="text-3xl font-bold">{stats.productivityScore}</div>
-                  <div className="text-sm text-muted-foreground">Productivity Score</div>
+                  <div className="text-sm text-muted-foreground">{tr.productivityScore}</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <div className="text-3xl font-bold">{stats.totalTasks}</div>
-                  <div className="text-sm text-muted-foreground">Total Tasks</div>
+                  <div className="text-sm text-muted-foreground">{tr.totalTasks}</div>
                 </CardContent>
               </Card>
               <Card className="bg-green-500/10">
                 <CardContent className="p-4">
                   <div className="text-3xl font-bold text-green-500">{stats.completedTasks}</div>
-                  <div className="text-sm text-muted-foreground">Completed</div>
+                  <div className="text-sm text-muted-foreground">{tr.completed}</div>
                 </CardContent>
               </Card>
               <Card className="bg-amber-500/10">
                 <CardContent className="p-4">
                   <div className="text-3xl font-bold text-amber-500">{stats.pendingTasks}</div>
-                  <div className="text-sm text-muted-foreground">Pending</div>
+                  <div className="text-sm text-muted-foreground">{tr.pending}</div>
                 </CardContent>
               </Card>
             </div>
             
             <Card className="mb-4">
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Completion Rate</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">{tr.completionRate}</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4">
                   <Progress value={stats.completionRate} className="flex-1 h-3" />
@@ -844,21 +843,21 @@ export default function Home() {
             </Card>
             
             <Card className="mb-4">
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Tasks by Priority</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">{tr.tasksByPriority}</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-red-500">High</Badge>
+                    <Badge className="bg-red-500">{tr.high}</Badge>
                     <Progress value={(stats.tasksByPriority.high / (stats.totalTasks || 1)) * 100} className="flex-1 h-2" />
                     <span className="text-sm">{stats.tasksByPriority.high}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-amber-500">Medium</Badge>
+                    <Badge className="bg-amber-500">{tr.medium}</Badge>
                     <Progress value={(stats.tasksByPriority.medium / (stats.totalTasks || 1)) * 100} className="flex-1 h-2" />
                     <span className="text-sm">{stats.tasksByPriority.medium}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-green-500">Low</Badge>
+                    <Badge className="bg-green-500">{tr.low}</Badge>
                     <Progress value={(stats.tasksByPriority.low / (stats.totalTasks || 1)) * 100} className="flex-1 h-2" />
                     <span className="text-sm">{stats.tasksByPriority.low}</span>
                   </div>
@@ -871,7 +870,7 @@ export default function Home() {
               <>
                 <Card className="mb-4">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Weekly Trend</CardTitle>
+                    <CardTitle className="text-sm">{tr.weeklyTrend}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-end gap-2 h-32">
@@ -893,7 +892,7 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Goals Progress</CardTitle>
+                      <CardTitle className="text-sm">{tr.goalsProgress}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       {goals.length > 0 ? (
@@ -909,14 +908,14 @@ export default function Home() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">No goals yet</p>
+                        <p className="text-sm text-muted-foreground">{tr.noGoalsYetShort}</p>
                       )}
                     </CardContent>
                   </Card>
                   
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Habit Streaks</CardTitle>
+                      <CardTitle className="text-sm">{tr.habitStreaks}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       {habits.length > 0 ? (
@@ -932,7 +931,7 @@ export default function Home() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">No habits yet</p>
+                        <p className="text-sm text-muted-foreground">{tr.noHabitsYetShort}</p>
                       )}
                     </CardContent>
                   </Card>
@@ -940,7 +939,7 @@ export default function Home() {
                 
                 <Card className="mb-4">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Tasks by Category</CardTitle>
+                    <CardTitle className="text-sm">{tr.tasksByCategory}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -959,12 +958,12 @@ export default function Home() {
               <Card className="mb-4 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border-violet-200">
                 <CardContent className="p-6 text-center">
                   <Sparkles className="h-8 w-8 mx-auto mb-2 text-violet-500" />
-                  <h3 className="font-semibold mb-1">Upgrade to Pro</h3>
+                  <h3 className="font-semibold mb-1">{tr.upgradeToPro}</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Get advanced analytics, weekly trends, goal tracking, and habit streaks
+                    {tr.advancedAnalyticsDesc}
                   </p>
                   <Button size="sm" onClick={() => setActiveTab('pricing')}>
-                    View Plans
+                    {tr.viewPlans}
                   </Button>
                 </CardContent>
               </Card>
@@ -979,7 +978,7 @@ export default function Home() {
         return (
           <div className="h-full flex flex-col p-4 overflow-auto">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-500" /> Team
+              <Users className="h-5 w-5 text-blue-500" /> {tr.team}
               {!hasTeamFeatures && <Badge variant="outline" className="text-xs ml-2">Business</Badge>}
             </h2>
             
@@ -988,9 +987,9 @@ export default function Home() {
                 <Card className="mb-4">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">Team Members</CardTitle>
+                      <CardTitle className="text-sm">{tr.teamMembers}</CardTitle>
                       <Button size="sm" onClick={() => setShowInviteMember(true)}>
-                        <UserPlus className="h-4 w-4 mr-1" /> Invite
+                        <UserPlus className="h-4 w-4 mr-1" /> {tr.invite}
                       </Button>
                     </div>
                   </CardHeader>
@@ -1014,22 +1013,22 @@ export default function Home() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        No team members yet. Invite your first team member!
+                        {tr.noTeamMembersYet}
                       </p>
                     )}
                     <div className="mt-4 text-sm text-muted-foreground">
-                      {maxTeamMembers === -1 ? 'Unlimited' : `${10 - teamMembers.length} seats remaining`}
+                      {maxTeamMembers === -1 ? tr.unlimited : `${10 - teamMembers.length} ${tr.seatsRemaining}`}
                     </div>
                   </CardContent>
                 </Card>
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Shared Calendar Access</CardTitle>
+                    <CardTitle className="text-sm">{tr.sharedCalendarAccess}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground">
-                      Team members can view and edit shared tasks and goals based on their role permissions.
+                      {tr.sharedCalendarDesc}
                     </p>
                   </CardContent>
                 </Card>
@@ -1038,12 +1037,12 @@ export default function Home() {
               <Card className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-200">
                 <CardContent className="p-6 text-center">
                   <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                  <h3 className="font-semibold mb-1">Upgrade to Business</h3>
+                  <h3 className="font-semibold mb-1">{tr.upgradeToBusiness}</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Invite team members, share calendars, and collaborate together
+                    {tr.businessDesc}
                   </p>
                   <Button size="sm" onClick={() => setActiveTab('pricing')}>
-                    View Plans
+                    {tr.viewPlans}
                   </Button>
                 </CardContent>
               </Card>
@@ -1055,12 +1054,12 @@ export default function Home() {
         return (
           <div className="h-full flex flex-col p-4 overflow-auto">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Settings className="h-5 w-5 text-gray-500" /> Settings
+              <Settings className="h-5 w-5 text-gray-500" /> {tr.settings}
             </h2>
             
             <Card className="mb-4">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Account</CardTitle>
+                <CardTitle className="text-sm">{tr.account}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -1076,11 +1075,11 @@ export default function Home() {
                 <div className="pt-2 border-t">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-medium">Current Plan</div>
+                      <div className="text-sm font-medium">{tr.currentPlan}</div>
                       <div className="text-xs text-muted-foreground capitalize">{subscription}</div>
                     </div>
                     <Button size="sm" variant="outline" onClick={() => setActiveTab('pricing')}>
-                      Change Plan
+                      {tr.changePlan}
                     </Button>
                   </div>
                 </div>
@@ -1089,13 +1088,13 @@ export default function Home() {
             
             <Card className="mb-4">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Preferences</CardTitle>
+                <CardTitle className="text-sm">{tr.preferences}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium">Time Format</div>
-                    <div className="text-xs text-muted-foreground">Choose 12-hour or 24-hour format</div>
+                    <div className="text-sm font-medium">{tr.timeFormat}</div>
+                    <div className="text-xs text-muted-foreground">{tr.timeFormatDesc}</div>
                   </div>
                   <div className="flex gap-2">
                     <Button 
@@ -1114,31 +1113,51 @@ export default function Home() {
                     </Button>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div>
+                    <div className="text-sm font-medium">{tr.language}</div>
+                    <div className="text-xs text-muted-foreground">{tr.languageDesc}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                    {SUPPORTED_LOCALES.map((loc) => (
+                      <Button
+                        key={loc.code}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setLocale(loc.code)}
+                        className={cn('text-xs px-2 py-1 h-auto', loc.code === (useAppStore.getState().locale) && 'border-violet-500 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300')}
+                      >
+                        {loc.nativeLabel}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
             
             <Card className="mb-4">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Data & Privacy</CardTitle>
+                <CardTitle className="text-sm">{tr.dataPrivacy}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <Button variant="outline" className="w-full justify-start" onClick={() => window.location.href = '/delete-account'}>
-                  <Trash2 className="h-4 w-4 mr-2" /> Delete Account
+                  <Trash2 className="h-4 w-4 mr-2" /> {tr.deleteAccount}
                 </Button>
                 <Button variant="outline" className="w-full justify-start" onClick={() => window.location.href = '/privacy-policy'}>
-                  <Check className="h-4 w-4 mr-2" /> Privacy Policy
+                  <Check className="h-4 w-4 mr-2" /> {tr.privacyPolicy}
                 </Button>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">App Info</CardTitle>
+                <CardTitle className="text-sm">{tr.appInfo}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-sm text-muted-foreground">
-                  <p>Zen Planner v1.0.0</p>
-                  <p className="mt-1">AI-Powered Productivity App</p>
+                  <p>{tr.appVersion}</p>
+                  <p className="mt-1">{tr.aiPoweredProductivity}</p>
                 </div>
               </CardContent>
             </Card>
@@ -1170,8 +1189,8 @@ export default function Home() {
                 <CheckCircle2 className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Zen Planner</h1>
-                <p className="text-xs text-white/80">AI-Powered Productivity</p>
+                <h1 className="text-xl font-bold">{tr.appName}</h1>
+                <p className="text-xs text-white/80">{tr.appTagline}</p>
               </div>
             </div>
             {!isMobile && (
@@ -1182,7 +1201,7 @@ export default function Home() {
                     <tab.icon className="h-4 w-4" />
                     {tab.label}
                     {tab.id === 'pricing' && subscription === 'free' && (
-                      <Badge className="bg-amber-500 text-xs ml-1">NEW</Badge>
+                      <Badge className="bg-amber-500 text-xs ml-1">{tr.newBadge}</Badge>
                     )}
                   </Button>
                 ))}
@@ -1190,13 +1209,13 @@ export default function Home() {
             )}
             <div className="hidden md:flex items-center gap-4">
               <div className="bg-white/10 rounded-lg px-3 py-1.5">
-                <span className="text-sm font-medium">{pendingTasks} pending</span>
+                <span className="text-sm font-medium">{pendingTasks} {tr.pendingCount}</span>
               </div>
               {subscription !== 'free' && (
                 <Badge className="bg-amber-500">
                   <Crown className="h-3 w-3 mr-1" />
                   {SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.name}
-                  {trialActive && ` (Trial)`}
+                  {trialActive && ` (${tr.trial})`}
                 </Badge>
               )}
               <div className="flex items-center gap-2">
@@ -1243,20 +1262,20 @@ export default function Home() {
       <Dialog open={showQuickAddTask} onOpenChange={setShowQuickAddTask}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Task</DialogTitle>
+            <DialogTitle>{tr.addTaskDialog}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium">Task Title</label>
+              <label className="text-sm font-medium">{tr.taskTitle}</label>
               <Input
                 value={quickAddTitle}
                 onChange={(e) => setQuickAddTitle(e.target.value)}
-                placeholder="Enter task title..."
+                placeholder={tr.enterTaskTitle}
                 onKeyDown={(e) => e.key === 'Enter' && handleQuickAddTask()}
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Due Date</label>
+              <label className="text-sm font-medium">{tr.dueDate}</label>
               <Input
                 type="date"
                 value={quickAddDate}
@@ -1265,8 +1284,8 @@ export default function Home() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuickAddTask(false)}>Cancel</Button>
-            <Button onClick={handleQuickAddTask} disabled={!quickAddTitle.trim()}>Add Task</Button>
+            <Button variant="outline" onClick={() => setShowQuickAddTask(false)}>{tr.cancel}</Button>
+            <Button onClick={handleQuickAddTask} disabled={!quickAddTitle.trim()}>{tr.addTaskBtn}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1275,20 +1294,20 @@ export default function Home() {
       <Dialog open={showQuickAddGoal} onOpenChange={setShowQuickAddGoal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Goal</DialogTitle>
+            <DialogTitle>{tr.addGoalDialog}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium">Goal Title</label>
+              <label className="text-sm font-medium">{tr.goalTitle}</label>
               <Input
                 value={quickAddTitle}
                 onChange={(e) => setQuickAddTitle(e.target.value)}
-                placeholder="Enter goal title..."
+                placeholder={tr.enterGoalTitle}
                 onKeyDown={(e) => e.key === 'Enter' && handleQuickAddGoal()}
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Target Date</label>
+              <label className="text-sm font-medium">{tr.targetDate}</label>
               <Input
                 type="date"
                 value={quickAddDate}
@@ -1297,8 +1316,8 @@ export default function Home() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuickAddGoal(false)}>Cancel</Button>
-            <Button onClick={handleQuickAddGoal} disabled={!quickAddTitle.trim()}>Add Goal</Button>
+            <Button variant="outline" onClick={() => setShowQuickAddGoal(false)}>{tr.cancel}</Button>
+            <Button onClick={handleQuickAddGoal} disabled={!quickAddTitle.trim()}>{tr.addGoalBtn}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
