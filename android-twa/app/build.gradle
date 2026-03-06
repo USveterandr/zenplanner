@@ -152,7 +152,7 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file("/Users/isaactrinidad/Library/Mobile Documents/com~apple~CloudDocs/code/zenplanner/android-twa/android.keystore")
+            storeFile file("../android.keystore")
             storePassword "zenplanner123"
             keyAlias "zenplanner"
             keyPassword "zenplanner123"

@@ -6,9 +6,7 @@ build:
         name: Set up JDK 17
         command: |
           sudo apt-get install -y openjdk-17-jdk
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          echo "JAVA_HOME=$JAVA_HOME" >> $EAS_BUILD_ENVS_FILE
-          echo "$JAVA_HOME/bin" >> $GITHUB_PATH || true
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $EAS_BUILD_ENVS_FILE
     - run:
         name: Make gradlew executable
         working_directory: android-twa
@@ -18,5 +16,7 @@ build:
         working_directory: android-twa
         command: ./gradlew :app:bundleRelease
     - eas/upload_artifact:
-        type: application-archive
-        path: android-twa/app/build/outputs/bundle/release/app-release.aab
+        name: Upload AAB
+        inputs:
+          type: application-archive
+          path: android-twa/app/build/outputs/bundle/release/app-release.aab
