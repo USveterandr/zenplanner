@@ -8,25 +8,26 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug",
-        "projectRoot": "android-twa"
-      }
+        "gradleCommand": ":app:assembleRelease",
+        "applicationArchivePath": "android-twa/app/build/outputs/apk/**/*.apk"
+      },
+      "config": "production.yml"
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease",
-        "projectRoot": "android-twa"
-      }
+        "applicationArchivePath": "android-twa/app/build/outputs/apk/**/*.apk"
+      },
+      "config": "production.yml"
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease",
-        "projectRoot": "android-twa"
-      }
+        "applicationArchivePath": "android-twa/app/build/outputs/bundle/release/app-release.aab"
+      },
+      "config": "production.yml"
     }
   },
   "submit": {

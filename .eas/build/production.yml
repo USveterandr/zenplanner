@@ -1,0 +1,22 @@
+build:
+  name: Build Android TWA (Release AAB)
+  steps:
+    - eas/checkout
+    - run:
+        name: Set up JDK 17
+        command: |
+          sudo apt-get install -y openjdk-17-jdk
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          echo "JAVA_HOME=$JAVA_HOME" >> $EAS_BUILD_ENVS_FILE
+          echo "$JAVA_HOME/bin" >> $GITHUB_PATH || true
+    - run:
+        name: Make gradlew executable
+        working_directory: android-twa
+        command: chmod +x gradlew
+    - run:
+        name: Build release AAB
+        working_directory: android-twa
+        command: ./gradlew :app:bundleRelease
+    - eas/upload_artifact:
+        type: application-archive
+        path: android-twa/app/build/outputs/bundle/release/app-release.aab
