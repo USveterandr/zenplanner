@@ -7,8 +7,7 @@ function generateId() {
 
 export async function POST(request: Request) {
   try {
-    const cf = getCloudflareContext();
-    const env = cf.env as any;
+    const env = getCloudflareContext().env;
     const db = env.zen_planner_db;
     
     const body = await request.json();

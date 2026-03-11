@@ -19,3 +19,6 @@ binding = "zen_planner_storage"
 
 [ai]
 binding = "AI"
+
+[vars]
+RESEND_API_KEY = ""

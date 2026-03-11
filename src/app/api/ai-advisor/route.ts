@@ -3,8 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export async function POST(request: Request) {
   try {
-    const cf = getCloudflareContext();
-    const env = cf.env as any;
+    const env = getCloudflareContext().env;
     
     const body = await request.json();
     const { message, context } = body as { message: string; context?: any };

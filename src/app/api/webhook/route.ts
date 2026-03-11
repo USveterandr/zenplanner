@@ -41,8 +41,7 @@ const LEMON_SQUEEZY_PLANS: Record<number, string> = {
 
 export async function POST(request: Request) {
   try {
-    const cf = getCloudflareContext();
-    const env = cf.env as any;
+    const env = getCloudflareContext().env;
     
     const bodyText = await request.text();
     

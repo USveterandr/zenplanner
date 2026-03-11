@@ -20,8 +20,7 @@ function scopedKey(userId: string, key: string) {
 
 export async function PUT(request: Request) {
   try {
-    const cf = getCloudflareContext();
-    const env = cf.env as any;
+    const env = getCloudflareContext().env;
     const bucket = env.zen_planner_storage;
 
     if (!bucket) {
@@ -55,8 +54,7 @@ export async function PUT(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const cf = getCloudflareContext();
-    const env = cf.env as any;
+    const env = getCloudflareContext().env;
     const bucket = env.zen_planner_storage;
 
     if (!bucket) {
@@ -97,8 +95,7 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const cf = getCloudflareContext();
-    const env = cf.env as any;
+    const env = getCloudflareContext().env;
     const bucket = env.zen_planner_storage;
 
     if (!bucket) {

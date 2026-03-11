@@ -1,9 +1,4 @@
-import type { D1Database, R2Bucket } from "@cloudflare/workers-types";
-
-export interface Env {
-  zen_planner_db: D1Database;
-  zen_planner_storage: R2Bucket;
-}
+export type Env = CloudflareEnv;
 
 const generateId = () => crypto.randomUUID();
 
