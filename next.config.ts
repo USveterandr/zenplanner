@@ -1,13 +1,17 @@
 import withSerwistInit from "@serwist/next";
 import type { NextConfig } from "next";
-import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
 });
 
-initOpenNextCloudflareForDev();
+// Only run in local dev (next dev), not during CI builds or production
+if (process.env.NODE_ENV === "development") {
+  import("@opennextjs/cloudflare").then(({ initOpenNextCloudflareForDev }) => {
+    initOpenNextCloudflareForDev();
+  });
+}
 
 const nextConfig: NextConfig = {
   typescript: {
