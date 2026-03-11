@@ -60,3 +60,6 @@ server.log
 # Cloudflare build output
 .open-next/
 _public/
+
+# Embedded repo copy (should not be tracked)
+android-twa/zenplanner/
