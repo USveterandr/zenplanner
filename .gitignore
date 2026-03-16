@@ -33,6 +33,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.dev.vars
 
 # vercel
 .vercel
@@ -63,3 +64,7 @@ _public/
 
 # Embedded repo copy (should not be tracked)
 android-twa/zenplanner/
+
+# Google OAuth credentials
+*.apps.googleusercontent.com.json
+client_secret_*.json

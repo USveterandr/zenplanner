@@ -2,10 +2,11 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { detectSystemLocale } from './i18n';
 import type { Locale } from './i18n';
+import { getSupabaseClient } from './supabase';
 
 const API_URL = '/api';
 
-async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean; user?: any; data?: any }> {
+async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean; user?: any; data?: any; session?: any }> {
   const response = await fetch(`${API_URL}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -326,7 +327,7 @@ interface AppState {
   
   signUp: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
   loadUserData: () => Promise<void>;
   
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => Promise<void>;
@@ -471,6 +472,14 @@ export const useAppStore = create<AppState>()(
         try {
           const result = await fetchAPI('/auth', { action: 'signup', name, email, password });
           if (result.user) {
+            // Restore Supabase session in the browser client if the server returned tokens
+            if (result.session && typeof window !== 'undefined') {
+              const supabase = getSupabaseClient();
+              await supabase.auth.setSession({
+                access_token: (result.session as any).access_token,
+                refresh_token: (result.session as any).refresh_token,
+              });
+            }
             set({ 
               user: { id: result.user.id, name: result.user.name, email: result.user.email },
               subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
@@ -485,6 +494,7 @@ export const useAppStore = create<AppState>()(
       },
 
       signIn: async (email, password) => {
+        // Hardcoded reviewer account bypass (Google Play review)
         if (email === 'reviewer@zenplanner.app' && password === 'ZenReview2026!') {
           const reviewerUser: UserAccount = { id: 'reviewer-account', name: 'Google Reviewer', email: 'reviewer@zenplanner.app' };
           const now = new Date();
@@ -501,6 +511,14 @@ export const useAppStore = create<AppState>()(
         try {
           const result = await fetchAPI('/auth', { action: 'login', email, password });
           if (result.user) {
+            // Restore Supabase session in the browser client
+            if (result.session && typeof window !== 'undefined') {
+              const supabase = getSupabaseClient();
+              await supabase.auth.setSession({
+                access_token: (result.session as any).access_token,
+                refresh_token: (result.session as any).refresh_token,
+              });
+            }
             set({ 
               user: { id: result.user.id, name: result.user.name, email: result.user.email },
             });
@@ -513,7 +531,11 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      signOut: () => {
+      signOut: async () => {
+        if (typeof window !== 'undefined') {
+          const supabase = getSupabaseClient();
+          await supabase.auth.signOut();
+        }
         set({ 
           user: null, 
           subscription: 'free', 
@@ -879,19 +901,23 @@ export const useAppStore = create<AppState>()(
       name: 'zen-planner-storage',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state, error) => {
-        state?.setHasHydrated(true);
-        // Auto-detect system language on first install (when no locale was persisted)
+        if (error) {
+          console.error("Hydration error:", error);
+          // If state is null due to error, we still want to proceed with default state
+          useAppStore.setState({ _hasHydrated: true });
+          return;
+        }
+        
         if (state) {
-          const raw = typeof window !== 'undefined'
-            ? window.localStorage.getItem('zen-planner-storage')
-            : null;
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (!parsed?.state?.locale) {
+          state.setHasHydrated(true);
+          
+          if (!state.locale) {
             state.setLocale(detectSystemLocale());
           }
-        }
-        if (state?.user) {
-          state.loadUserData();
+
+          if (state.user) {
+            state.loadUserData();
+          }
         }
       },
       partialize: (state) => ({

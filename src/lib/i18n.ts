@@ -42,6 +42,18 @@ export interface Translations {
   signUpFailed: string;
   signInFailed: string;
 
+  // Forgot password
+  forgotPassword: string;
+  forgotPasswordTitle: string;
+  forgotPasswordDesc: string;
+  sendResetLink: string;
+  resetLinkSent: string;
+  resetLinkSentDesc: string;
+  tapToReset: string;
+  backToSignIn: string;
+  resetEmailRequired: string;
+  resetRequestFailed: string;
+
   // Onboarding
   welcomeUser: string;
   allFeaturesFreeLine: string;
@@ -204,6 +216,16 @@ const en: Translations = {
   passwordRequired: 'Password is required.',
   signUpFailed: 'Sign up failed.',
   signInFailed: 'Sign in failed.',
+  forgotPassword: 'Forgot password?',
+  forgotPasswordTitle: 'Reset Password',
+  forgotPasswordDesc: 'Enter your email and we\'ll send you a reset link.',
+  sendResetLink: 'Send Reset Link',
+  resetLinkSent: 'Your reset link is ready',
+  resetLinkSentDesc: 'If an account exists for that email, you\'ll receive a reset link shortly.',
+  tapToReset: 'Tap here to reset your password',
+  backToSignIn: 'Back to Sign In',
+  resetEmailRequired: 'Please enter your email address.',
+  resetRequestFailed: 'Failed to send reset email. Please try again.',
 
   welcomeUser: 'Welcome, {name}!',
   allFeaturesFreeLine: 'All features are now free! Enjoy unlimited access to tasks, goals, habits, AI advisor, and more.',
@@ -351,6 +373,16 @@ const es: Translations = {
   passwordRequired: 'La contraseña es obligatoria.',
   signUpFailed: 'Error al registrarse.',
   signInFailed: 'Error al iniciar sesión.',
+  forgotPassword: '¿Olvidaste tu contraseña?',
+  forgotPasswordTitle: 'Restablecer contraseña',
+  forgotPasswordDesc: 'Ingresa tu correo y te enviaremos un enlace de restablecimiento.',
+  sendResetLink: 'Enviar enlace',
+  resetLinkSent: 'Tu enlace de restablecimiento está listo',
+  resetLinkSentDesc: 'Si existe una cuenta con ese correo, recibirás un enlace en breve.',
+  tapToReset: 'Toca aquí para restablecer tu contraseña',
+  backToSignIn: 'Volver a iniciar sesión',
+  resetEmailRequired: 'Por favor ingresa tu correo electrónico.',
+  resetRequestFailed: 'No se pudo enviar el correo. Inténtalo de nuevo.',
 
   welcomeUser: '¡Bienvenido, {name}!',
   allFeaturesFreeLine: '¡Todas las funciones son gratuitas! Disfruta acceso ilimitado a tareas, metas, hábitos, asesor IA y más.',
@@ -498,6 +530,16 @@ const zh: Translations = {
   passwordRequired: '密码为必填项。',
   signUpFailed: '注册失败。',
   signInFailed: '登录失败。',
+  forgotPassword: '忘记密码？',
+  forgotPasswordTitle: '重置密码',
+  forgotPasswordDesc: '输入您的邮箱，我们将发送重置链接。',
+  sendResetLink: '发送重置链接',
+  resetLinkSent: '您的重置链接已准备好',
+  resetLinkSentDesc: '如果该邮箱已注册账号，您将收到重置链接。',
+  tapToReset: '点击此处重置您的密码',
+  backToSignIn: '返回登录',
+  resetEmailRequired: '请输入您的电子邮件地址。',
+  resetRequestFailed: '发送重置邮件失败，请重试。',
 
   welcomeUser: '欢迎，{name}！',
   allFeaturesFreeLine: '所有功能现在免费！享受任务、目标、习惯、AI顾问等无限访问权限。',
@@ -645,6 +687,16 @@ const hi: Translations = {
   passwordRequired: 'पासवर्ड आवश्यक है।',
   signUpFailed: 'साइन अप विफल।',
   signInFailed: 'साइन इन विफल।',
+  forgotPassword: 'पासवर्ड भूल गए?',
+  forgotPasswordTitle: 'पासवर्ड रीसेट करें',
+  forgotPasswordDesc: 'अपना ईमेल दर्ज करें और हम आपको एक रीसेट लिंक भेजेंगे।',
+  sendResetLink: 'रीसेट लिंक भेजें',
+  resetLinkSent: 'आपका रीसेट लिंक तैयार है',
+  resetLinkSentDesc: 'यदि उस ईमेल पर कोई खाता है, तो आपको शीघ्र ही एक रीसेट लिंक मिलेगा।',
+  tapToReset: 'पासवर्ड रीसेट करने के लिए यहां टैप करें',
+  backToSignIn: 'साइन इन पर वापस जाएं',
+  resetEmailRequired: 'कृपया अपना ईमेल पता दर्ज करें।',
+  resetRequestFailed: 'रीसेट ईमेल भेजने में विफल। कृपया पुनः प्रयास करें।',
 
   welcomeUser: 'स्वागत है, {name}!',
   allFeaturesFreeLine: 'सभी सुविधाएँ अब मुफ्त हैं! कार्यों, लक्ष्यों, आदतों, AI सलाहकार और अधिक तक असीमित पहुँच का आनंद लें।',
@@ -792,6 +844,16 @@ const fr: Translations = {
   passwordRequired: 'Le mot de passe est obligatoire.',
   signUpFailed: 'Échec de l\'inscription.',
   signInFailed: 'Échec de la connexion.',
+  forgotPassword: 'Mot de passe oublié ?',
+  forgotPasswordTitle: 'Réinitialiser le mot de passe',
+  forgotPasswordDesc: 'Entrez votre e-mail et nous vous enverrons un lien de réinitialisation.',
+  sendResetLink: 'Envoyer le lien',
+  resetLinkSent: 'Votre lien de réinitialisation est prêt',
+  resetLinkSentDesc: 'Si un compte existe pour cet e-mail, vous recevrez un lien très prochainement.',
+  tapToReset: 'Appuyez ici pour réinitialiser votre mot de passe',
+  backToSignIn: 'Retour à la connexion',
+  resetEmailRequired: 'Veuillez entrer votre adresse e-mail.',
+  resetRequestFailed: 'Échec de l\'envoi de l\'e-mail. Veuillez réessayer.',
 
   welcomeUser: 'Bienvenue, {name} !',
   allFeaturesFreeLine: 'Toutes les fonctionnalités sont maintenant gratuites ! Profitez d\'un accès illimité aux tâches, objectifs, habitudes, conseiller IA et plus.',

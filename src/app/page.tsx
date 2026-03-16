@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS, isTrialActive, getTrialDaysRemaining } from '@/lib/store';
 import type { Priority, SubscriptionTier } from '@/lib/store';
 import { SUPPORTED_LOCALES } from '@/lib/i18n';
 import { useTranslation } from '@/hooks/use-translation';
+import { getSupabaseClient } from '@/lib/supabase';
 import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
@@ -41,11 +42,63 @@ export default function Home() {
   const {
     tasks, goals, habits, addTask, toggleTask, deleteTask,
     addGoal, addHabit, toggleHabitCompletion, addChatMessage, chatMessages,
-    _hasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
+    _hasHydrated: storeHasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
     subscription, setSubscription, user, signUp, signIn, signOut,
     subscriptionInfo, selectPlan, teamMembers, canAddGoal, canAddHabit,
     setLocale, locale,
   } = useAppStore();
+
+  // Local hydration status for Next.js consistency
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [bypassStoreHydration, setBypassStoreHydration] = useState(false);
+  
+  useEffect(() => {
+    setIsHydrated(true);
+    // Safety fallback: if store rehydration is extremely slow or stuck, move past the loading screen
+    const timer = setTimeout(() => {
+      setBypassStoreHydration(true);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Listen for Supabase auth state changes (handles OAuth redirect back into the app)
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user && !user) {
+          const { id, email, user_metadata } = session.user;
+          const name =
+            (user_metadata?.full_name as string | undefined) ||
+            (user_metadata?.name as string | undefined) ||
+            email?.split('@')[0] ||
+            'User';
+
+          // Ensure D1 row exists for OAuth users via the existing login endpoint
+          try {
+            const res = await fetch('/api/auth', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'oauth_sync', userId: id, email, name }),
+            });
+            // Best-effort — ignore errors here
+          } catch { /* noop */ }
+
+          useAppStore.setState({
+            user: { id, name, email: email ?? '' },
+          });
+          await useAppStore.getState().loadUserData();
+        }
+      }
+    );
+
+    return () => authSub.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  const _hasHydrated = isHydrated && (storeHasHydrated || bypassStoreHydration);
   
   const { tr, t } = useTranslation();
 
@@ -89,7 +142,7 @@ export default function Home() {
   const [inviteName, setInviteName] = useState('');
 
   // Auth form state
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot'>('signup');
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -107,6 +160,8 @@ export default function Home() {
   const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [resetUrl, setResetUrl] = useState('');
 
   // All useMemo hooks MUST be before any conditional returns
   const calendarEvents = useMemo(() => getCalendarEvents(tasks, goals), [tasks, goals]);
@@ -128,10 +183,10 @@ export default function Home() {
   // Now we can do the conditional return AFTER all hooks
   if (!_hasHydrated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">{tr.loading}</p>
+          <p className="text-violet-700 dark:text-slate-400">{tr.loading}</p>
         </div>
       </div>
     );
@@ -157,6 +212,40 @@ export default function Home() {
     const result = await signIn(authEmail.trim().toLowerCase(), authPassword);
     if (!result.success) { setAuthError(result.error || tr.signInFailed); return; }
     setAuthEmail(''); setAuthPassword('');
+  };
+
+  const handleForgotPassword = async () => {
+    setAuthError('');
+    if (!authEmail.trim()) { setAuthError(tr.resetEmailRequired); return; }
+    try {
+      const res = await fetch('/api/auth/reset-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail.trim().toLowerCase() }),
+      });
+      const data = await res.json() as { success: boolean; resetUrl: string | null; error?: string };
+      if (res.ok && data.success) {
+        setResetUrl(data.resetUrl ?? '');
+        setForgotSent(true);
+      } else {
+        setAuthError(data.error || tr.resetRequestFailed);
+      }
+    } catch {
+      setAuthError(tr.resetRequestFailed);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthError('');
+    const supabase = getSupabaseClient();
+    if (!supabase) { setAuthError('Auth not available'); return; }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) setAuthError(error.message);
   };
 
   const handleSelectPlan = async (tier: SubscriptionTier) => {
@@ -220,10 +309,10 @@ export default function Home() {
           <Card className="shadow-xl border-0">
             <CardHeader className="text-center pb-2">
               <CardTitle className="text-xl">
-                {authMode === 'signup' ? tr.createAccount : tr.welcomeBack}
+                {authMode === 'signup' ? tr.createAccount : authMode === 'forgot' ? tr.forgotPasswordTitle : tr.welcomeBack}
               </CardTitle>
               <CardDescription>
-                {authMode === 'signup' ? tr.startJourney : tr.continueWhereLeft}
+                {authMode === 'signup' ? tr.startJourney : authMode === 'forgot' ? tr.forgotPasswordDesc : tr.continueWhereLeft}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -233,90 +322,187 @@ export default function Home() {
                 </div>
               )}
 
-              {authMode === 'signup' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">{tr.fullName}</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="John Doe"
-                      value={authName}
-                      onChange={(e) => setAuthName(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
+              {/* ---- FORGOT PASSWORD MODE ---- */}
+              {authMode === 'forgot' && (
+                <>
+                  {forgotSent ? (
+                    <div className="flex flex-col items-center gap-3 py-4 text-center">
+                      <div className="text-4xl">🔑</div>
+                      <p className="font-medium text-gray-800">{tr.resetLinkSent}</p>
+                      {resetUrl ? (
+                        <a
+                          href={resetUrl}
+                          className="mt-1 w-full break-all rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700 hover:bg-violet-100 text-center block"
+                        >
+                          {tr.tapToReset}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{tr.resetLinkSentDesc}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">{tr.emailAddress}</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="email"
+                          placeholder="you@example.com"
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleForgotPassword()}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {!forgotSent && (
+                    <Button
+                      className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
+                      size="lg"
+                      onClick={handleForgotPassword}
+                    >
+                      {tr.sendResetLink}
+                    </Button>
+                  )}
+                </>
               )}
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">{tr.emailAddress}</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (authMode === 'signup' ? handleSignUp() : handleSignIn())}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
+              {/* ---- SIGN UP / SIGN IN MODE ---- */}
+              {authMode !== 'forgot' && (
+                <>
+                  {authMode === 'signup' && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">{tr.fullName}</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="John Doe"
+                          value={authName}
+                          onChange={(e) => setAuthName(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">{tr.password}</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder={authMode === 'signup' ? tr.atLeast6Chars : tr.enterYourPassword}
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (authMode === 'signin' ? handleSignIn() : undefined)}
-                    className="pl-10 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">{tr.emailAddress}</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && (authMode === 'signup' ? handleSignUp() : handleSignIn())}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">{tr.password}</label>
+                      {authMode === 'signin' && (
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode('forgot'); setAuthError(''); setForgotSent(false); setResetUrl(''); }}
+                          className="text-xs text-violet-600 hover:text-violet-700 hover:underline"
+                        >
+                          {tr.forgotPassword}
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder={authMode === 'signup' ? tr.atLeast6Chars : tr.enterYourPassword}
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && (authMode === 'signin' ? handleSignIn() : undefined)}
+                        className="pl-10 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {authMode === 'signup' && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">{tr.confirmPassword}</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder={tr.confirmYourPassword}
+                          value={authConfirmPassword}
+                          onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSignUp()}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
+                    size="lg"
+                    onClick={authMode === 'signup' ? handleSignUp : handleSignIn}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                    {authMode === 'signup' ? (
+                      <><UserPlus className="h-4 w-4 mr-2" /> {tr.createAccountBtn}</>
+                    ) : (
+                      <><LogIn className="h-4 w-4 mr-2" /> {tr.signIn}</>
+                    )}
+                  </Button>
 
-              {authMode === 'signup' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">{tr.confirmPassword}</label>
+                  {/* Divider */}
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder={tr.confirmYourPassword}
-                      value={authConfirmPassword}
-                      onChange={(e) => setAuthConfirmPassword(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSignUp()}
-                      className="pl-10"
-                    />
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-gray-200" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white px-2 text-muted-foreground">or</span>
+                    </div>
                   </div>
-                </div>
-              )}
 
-              <Button
-                className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
-                size="lg"
-                onClick={authMode === 'signup' ? handleSignUp : handleSignIn}
-              >
-                {authMode === 'signup' ? (
-                  <><UserPlus className="h-4 w-4 mr-2" /> {tr.createAccountBtn}</>
-                ) : (
-                  <><LogIn className="h-4 w-4 mr-2" /> {tr.signIn}</>
-                )}
-              </Button>
+                  {/* Google OAuth */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                    onClick={handleGoogleSignIn}
+                  >
+                    <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Continue with Google
+                  </Button>
+                </>
+              )}
             </CardContent>
             <CardFooter className="justify-center">
               <p className="text-sm text-muted-foreground">
-                {authMode === 'signup' ? (
+                {authMode === 'forgot' ? (
+                  <button
+                    onClick={() => { setAuthMode('signin'); setAuthError(''); setForgotSent(false); setResetUrl(''); }}
+                    className="text-violet-600 hover:text-violet-700 font-medium"
+                  >
+                    {tr.backToSignIn}
+                  </button>
+                ) : authMode === 'signup' ? (
                   <>{tr.alreadyHaveAccount}{' '}
                     <button onClick={() => { setAuthMode('signin'); setAuthError(''); }} className="text-violet-600 hover:text-violet-700 font-medium">
                       {tr.signIn}
