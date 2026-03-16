@@ -8,11 +8,7 @@ function generateId() {
 
 export async function POST(request: Request) {
   try {
-    const db = getDb();
-
-    if (!db) {
-      return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
-    }
+    const db = getDb(); // null on Vercel — D1 upserts are Cloudflare-only best-effort
 
     const body = await request.json();
     const { email, name, password, action, userId } = body as {
@@ -30,6 +26,10 @@ export async function POST(request: Request) {
     if (action === "oauth_sync") {
       if (!userId || !email) {
         return NextResponse.json({ success: false, error: "Missing userId or email" }, { status: 400 });
+      }
+      if (!db) {
+        // On Vercel there is no D1 — succeed silently; row will be created on Cloudflare
+        return NextResponse.json({ success: true });
       }
       const existing = await db
         .prepare("SELECT id FROM User WHERE id = ?")
@@ -76,22 +76,24 @@ export async function POST(request: Request) {
 
       const supabaseUserId = authData.user.id;
 
-      // Upsert user row in D1 using the Supabase UUID as the primary key
-      const existing = await db
-        .prepare("SELECT id FROM User WHERE id = ?")
-        .bind(supabaseUserId)
-        .first();
+      // Upsert user row in D1 (Cloudflare only — skip gracefully on Vercel)
+      if (db) {
+        const existing = await db
+          .prepare("SELECT id FROM User WHERE id = ?")
+          .bind(supabaseUserId)
+          .first();
 
-      if (!existing) {
-        await db
-          .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
-          .bind(supabaseUserId, email, name, "supabase-managed")
-          .run();
+        if (!existing) {
+          await db
+            .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
+            .bind(supabaseUserId, email, name, "supabase-managed")
+            .run();
 
-        await db
-          .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-          .bind(generateId(), "free", supabaseUserId)
-          .run();
+          await db
+            .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
+            .bind(generateId(), "free", supabaseUserId)
+            .run();
+        }
       }
 
       // Sign in immediately to get a session token
@@ -135,31 +137,29 @@ export async function POST(request: Request) {
       }
 
       const supabaseUserId = sessionData.user.id;
+      let userName = (sessionData.user.user_metadata?.name as string | undefined) || email.split("@")[0];
 
-      // Ensure D1 row exists (for users created before this migration)
-      const existing = await db
-        .prepare("SELECT id, name FROM User WHERE id = ?")
-        .bind(supabaseUserId)
-        .first() as { id: string; name: string } | null;
+      // Ensure D1 row exists (Cloudflare only — skip gracefully on Vercel)
+      if (db) {
+        const existing = await db
+          .prepare("SELECT id, name FROM User WHERE id = ?")
+          .bind(supabaseUserId)
+          .first() as { id: string; name: string } | null;
 
-      if (!existing) {
-        // Migrate: create D1 row for legacy Supabase user
-        const displayName =
-          (sessionData.user.user_metadata?.name as string | undefined) || email.split("@")[0];
-        await db
-          .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
-          .bind(supabaseUserId, email, displayName, "supabase-managed")
-          .run();
-        await db
-          .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-          .bind(generateId(), "free", supabaseUserId)
-          .run();
+        if (!existing) {
+          // Migrate: create D1 row for legacy Supabase user
+          await db
+            .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
+            .bind(supabaseUserId, email, userName, "supabase-managed")
+            .run();
+          await db
+            .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
+            .bind(generateId(), "free", supabaseUserId)
+            .run();
+        } else {
+          userName = existing.name || userName;
+        }
       }
-
-      const userName =
-        existing?.name ||
-        (sessionData.user.user_metadata?.name as string | undefined) ||
-        email.split("@")[0];
 
       return NextResponse.json({
         success: true,
