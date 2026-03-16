@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getBucket } from "@/lib/db";
 
 /**
  * R2 file storage API
@@ -20,8 +20,7 @@ function scopedKey(userId: string, key: string) {
 
 export async function PUT(request: Request) {
   try {
-    const env = getCloudflareContext().env;
-    const bucket = env.zen_planner_storage;
+    const bucket = getBucket();
 
     if (!bucket) {
       return NextResponse.json({ success: false, error: "Storage not configured" }, { status: 500 });
@@ -54,8 +53,7 @@ export async function PUT(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const env = getCloudflareContext().env;
-    const bucket = env.zen_planner_storage;
+    const bucket = getBucket();
 
     if (!bucket) {
       return NextResponse.json({ success: false, error: "Storage not configured" }, { status: 500 });
@@ -95,8 +93,7 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const env = getCloudflareContext().env;
-    const bucket = env.zen_planner_storage;
+    const bucket = getBucket();
 
     if (!bucket) {
       return NextResponse.json({ success: false, error: "Storage not configured" }, { status: 500 });

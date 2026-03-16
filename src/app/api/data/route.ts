@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getDb } from "@/lib/db";
 
 function generateId() {
   return crypto.randomUUID();
@@ -7,8 +7,7 @@ function generateId() {
 
 export async function POST(request: Request) {
   try {
-    const env = getCloudflareContext().env;
-    const db = env.zen_planner_db;
+    const db = getDb();
     
     const body = await request.json();
     const { userId, action, type, data, id } = body as {

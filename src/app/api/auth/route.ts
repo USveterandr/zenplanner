@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getDb } from "@/lib/db";
 import { getSupabaseClient } from "@/lib/supabase";
 
 function generateId() {
@@ -8,8 +8,7 @@ function generateId() {
 
 export async function POST(request: Request) {
   try {
-    const env = getCloudflareContext().env;
-    const db = env.zen_planner_db;
+    const db = getDb();
 
     if (!db) {
       return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getAI } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const env = getCloudflareContext().env;
+    const ai = getAI();
+
+    if (!ai) {
+      return NextResponse.json({ success: false, error: "AI not available in this environment" }, { status: 503 });
+    }
     
     const body = await request.json();
     const { message, context } = body as { message: string; context?: any };
@@ -36,13 +40,14 @@ export async function POST(request: Request) {
 
     const systemPrompt = `You are a helpful AI productivity advisor for Zen Planner app. Be concise, encouraging, and practical. Help users with task management, goal setting, habit building, and productivity tips.${contextStr ? `\n\nCurrent user data:${contextStr}` : ""}`;
 
-    const aiResponse = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aiResponse = await (ai as any).run("@cf/meta/llama-3.1-8b-instruct", {
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message },
       ],
       max_tokens: 500,
-    });
+    }) as { response?: string };
 
     const response = aiResponse.response || "I'm here to help! Try asking me about productivity, task management, or your goals.";
     

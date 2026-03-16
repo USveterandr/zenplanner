@@ -1,4 +1,42 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
 export type Env = CloudflareEnv;
+
+/**
+ * Safely get the Cloudflare D1 database binding.
+ * Returns null when running outside of Cloudflare Workers (e.g. Vercel / local Next.js).
+ */
+export function getDb(): CloudflareEnv["zen_planner_db"] | null {
+  try {
+    return getCloudflareContext().env.zen_planner_db ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Safely get the Cloudflare AI binding.
+ * Returns null when running outside of Cloudflare Workers.
+ */
+export function getAI(): CloudflareEnv["AI"] | null {
+  try {
+    return getCloudflareContext().env.AI ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Safely get the Cloudflare R2 storage binding.
+ * Returns null when running outside of Cloudflare Workers.
+ */
+export function getBucket(): CloudflareEnv["zen_planner_storage"] | null {
+  try {
+    return getCloudflareContext().env.zen_planner_storage ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const generateId = () => crypto.randomUUID();
 

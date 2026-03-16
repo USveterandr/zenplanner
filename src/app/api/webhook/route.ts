@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { updateSubscriptionWithLemonSqueezy } from "@/lib/db";
+import { getDb } from "@/lib/db";
 
 interface LemonSqueezyEvent {
   event_name: string;
@@ -41,7 +40,11 @@ const LEMON_SQUEEZY_PLANS: Record<number, string> = {
 
 export async function POST(request: Request) {
   try {
-    const env = getCloudflareContext().env;
+    const db = getDb();
+
+    if (!db) {
+      return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
+    }
     
     const bodyText = await request.text();
     
@@ -60,6 +63,19 @@ export async function POST(request: Request) {
       console.error("No userId in webhook");
       return NextResponse.json({ success: false, error: "No userId" }, { status: 400 });
     }
+
+    async function updateSub(fields: Record<string, string | undefined>) {
+      const setClauses: string[] = [];
+      const values: string[] = [];
+      for (const [col, val] of Object.entries(fields)) {
+        if (val !== undefined) {
+          setClauses.push(`${col} = ?`);
+          values.push(val);
+        }
+      }
+      values.push(userId!);
+      await db!.prepare(`UPDATE Subscription SET ${setClauses.join(", ")} WHERE userId = ?`).bind(...values).run();
+    }
     
     switch (event_name) {
       case "subscription_created":
@@ -67,10 +83,10 @@ export async function POST(request: Request) {
         const variantId = attributes.variant_id;
         const tier = variantId ? (LEMON_SQUEEZY_PLANS[variantId] || "free") : "free";
         
-        await updateSubscriptionWithLemonSqueezy(env, userId, {
+        await updateSub({
+          tier,
           customerId: attributes.customer_id ? String(attributes.customer_id) : undefined,
           subscriptionId: attributes.subscription_id ? String(attributes.subscription_id) : undefined,
-          tier,
           status: attributes.status,
           renewsAt: attributes.renews_at,
           endsAt: attributes.ends_at,
@@ -82,12 +98,7 @@ export async function POST(request: Request) {
       
       case "subscription_cancelled":
       case "subscription_expired": {
-        await updateSubscriptionWithLemonSqueezy(env, userId, {
-          tier: "free",
-          status: "cancelled",
-          endsAt: attributes.ends_at,
-        });
-        
+        await updateSub({ tier: "free", status: "cancelled", endsAt: attributes.ends_at });
         console.log(`Subscription cancelled for user ${userId}`);
         break;
       }
@@ -95,13 +106,7 @@ export async function POST(request: Request) {
       case "subscription_resumed": {
         const variantId = attributes.variant_id;
         const tier = variantId ? (LEMON_SQUEEZY_PLANS[variantId] || "pro") : "pro";
-        
-        await updateSubscriptionWithLemonSqueezy(env, userId, {
-          tier,
-          status: "active",
-          renewsAt: attributes.renews_at,
-        });
-        
+        await updateSub({ tier, status: "active", renewsAt: attributes.renews_at });
         console.log(`Subscription resumed for user ${userId}`);
         break;
       }
