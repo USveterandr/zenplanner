@@ -13,10 +13,6 @@ binding = "zen_planner_db"
 database_name = "zen-planner-db"
 database_id = "efb0a777-d061-408b-baf5-f0ec60982757"
 
-[[r2_buckets]]
-bucket_name = "zen-planner-storage"
-binding = "zen_planner_storage"
-
 [ai]
 binding = "AI"
 
