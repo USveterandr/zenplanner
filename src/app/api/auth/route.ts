@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
     if (action === "login" &&
         email === "reviewer@zenplanner.app" &&
-        password === "ZenReview2026!") {
+        password === "Password123") {
       // Ensure a D1 row exists for the reviewer on Cloudflare
       if (db) {
         const existing = await db.prepare("SELECT id FROM User WHERE id = ?").bind(REVIEWER_ID).first();
