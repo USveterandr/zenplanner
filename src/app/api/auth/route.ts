@@ -51,6 +51,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    // ── REVIEWER BYPASS (Google Play review account) ─────────────────────────
+    // This hardcoded bypass allows the Google Play reviewer to sign in without
+    // needing an account in Supabase. The credentials are listed in the Play
+    // Console demo credentials section.
+    const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
+    if (action === "login" &&
+        email === "reviewer@zenplanner.app" &&
+        password === "ZenReview2026!") {
+      // Ensure a D1 row exists for the reviewer on Cloudflare
+      if (db) {
+        const existing = await db.prepare("SELECT id FROM User WHERE id = ?").bind(REVIEWER_ID).first();
+        if (!existing) {
+          await db.prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
+            .bind(REVIEWER_ID, "reviewer@zenplanner.app", "Google Reviewer", "bypass")
+            .run();
+          await db.prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
+            .bind(generateId(), "free", REVIEWER_ID)
+            .run();
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        user: { id: REVIEWER_ID, email: "reviewer@zenplanner.app", name: "Google Reviewer" },
+        session: {
+          access_token: "reviewer-bypass-token",
+          refresh_token: "reviewer-bypass-refresh",
+          expires_at: Math.floor(Date.now() / 1000) + 86400,
+        },
+      });
+    }
+
     // ── SIGN UP ──────────────────────────────────────────────────────────────
     if (action === "signup") {
       if (!name) {
