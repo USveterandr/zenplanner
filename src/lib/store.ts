@@ -6,9 +6,22 @@ import { getSupabaseClient } from './supabase';
 
 const API_URL = '/api';
 
-async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean; user?: any; data?: any; session?: any }> {
+async function fetchAPI(endpoint: string, data: any, isRetry = false): Promise<{ success: boolean; user?: any; data?: any; session?: any }> {
   // Attach Bearer token from store so server can verify the caller's identity
-  const token = useAppStore.getState().accessToken;
+  let token = useAppStore.getState().accessToken;
+
+  // If we have no token, try to recover one from Supabase before giving up
+  if (!token) {
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        token = session.access_token;
+        useAppStore.setState({ accessToken: token });
+      }
+    } catch { /* ignore */ }
+  }
+
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -17,6 +30,19 @@ async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean
     headers,
     body: JSON.stringify(data),
   });
+
+  // On 401, try once to refresh the Supabase session and retry
+  if (response.status === 401 && !isRetry) {
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.refreshSession();
+      if (session?.access_token) {
+        useAppStore.setState({ accessToken: session.access_token });
+        return fetchAPI(endpoint, data, true);
+      }
+    } catch { /* ignore */ }
+  }
+
   const result = await response.json() as { success: boolean; error?: string; user?: any; data?: any };
   if (!result.success) {
     throw new Error(result.error || 'API error');
@@ -317,6 +343,8 @@ interface AppState {
   selectedDate: string;
   _hasHydrated: boolean;
   isLoading: boolean;
+  lastError: string | null;
+  clearLastError: () => void;
   setHasHydrated: (state: boolean) => void;
   
   // Feature checks
@@ -369,6 +397,10 @@ interface AppState {
   // i18n
   locale: Locale;
   setLocale: (locale: Locale) => void;
+
+  // User preferences
+  timeFormat: '12h' | '24h';
+  setTimeFormat: (fmt: '12h' | '24h') => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -391,7 +423,9 @@ export const useAppStore = create<AppState>()(
       selectedDate: new Date().toISOString().split('T')[0],
       _hasHydrated: false,
       isLoading: false,
+      lastError: null,
       setHasHydrated: (state) => set({ _hasHydrated: state }),
+      clearLastError: () => set({ lastError: null }),
 
       canAddGoal: () => {
         const { goals, subscription } = get();
@@ -504,7 +538,9 @@ export const useAppStore = create<AppState>()(
       signIn: async (email, password) => {
         // Hardcoded reviewer account bypass (Google Play review)
         if (email === 'reviewer@zenplanner.app' && password === 'Password123') {
-          const reviewerUser: UserAccount = { id: 'reviewer-account', name: 'Google Reviewer', email: 'reviewer@zenplanner.app' };
+          // Use the same UUID the server uses so D1 lookups match
+          const REVIEWER_UUID = '00000000-0000-0000-0000-000000000001';
+          const reviewerUser: UserAccount = { id: REVIEWER_UUID, name: 'Google Reviewer', email: 'reviewer@zenplanner.app' };
           const now = new Date();
           const trialEnd = new Date(now);
           trialEnd.setDate(trialEnd.getDate() + 7);
@@ -514,6 +550,7 @@ export const useAppStore = create<AppState>()(
             subscription: 'pro',
             subscriptionInfo: { tier: 'pro', startDate: now.toISOString(), trialEndDate: trialEnd.toISOString() },
           });
+          await get().loadUserData();
           return { success: true };
         }
 
@@ -599,14 +636,42 @@ export const useAppStore = create<AppState>()(
       addTask: async (taskData) => {
         const { user, tasks } = get();
         if (!user) return;
-        
+
+        // Optimistic update: add a temporary task immediately so the UI responds instantly
+        const tempId = `temp-${crypto.randomUUID()}`;
+        const now = new Date().toISOString();
+        const optimisticTask: Task = {
+          id: tempId,
+          title: taskData.title,
+          description: taskData.description,
+          completed: taskData.completed ?? false,
+          priority: taskData.priority ?? 'medium',
+          category: taskData.category ?? 'personal',
+          subtasks: taskData.subtasks ?? [],
+          dueDate: taskData.dueDate,
+          dueTime: taskData.dueTime,
+          reminderMinutesBefore: taskData.reminderMinutesBefore,
+          order: tasks.length,
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({ tasks: [...state.tasks, optimisticTask] }));
+
         try {
           const result = await fetchAPI('/data', { userId: user.id, action: 'create', type: 'task', data: { ...taskData, order: tasks.length } });
           if (result.data) {
-            set((state) => ({ tasks: [...state.tasks, result.data] }));
+            // Replace the temp task with the server-confirmed task (has real id, timestamps)
+            set((state) => ({
+              tasks: state.tasks.map((t) => t.id === tempId ? { ...optimisticTask, ...result.data } : t),
+            }));
           }
         } catch (error) {
           console.error('Error adding task:', error);
+          // Roll back the optimistic task and surface the error
+          set((state) => ({
+            tasks: state.tasks.filter((t) => t.id !== tempId),
+            lastError: 'Failed to save task. Please check your connection and try again.',
+          }));
         }
       },
 
@@ -652,14 +717,34 @@ export const useAppStore = create<AppState>()(
       addGoal: async (goalData) => {
         const { user } = get();
         if (!user) return;
-        
+
+        const tempId = `temp-${crypto.randomUUID()}`;
+        const now = new Date().toISOString();
+        const optimisticGoal: Goal = {
+          id: tempId,
+          title: goalData.title,
+          description: goalData.description,
+          color: goalData.color ?? '#8b5cf6',
+          milestones: goalData.milestones ?? [],
+          progress: 0,
+          targetDate: goalData.targetDate,
+          createdAt: now,
+        };
+        set((state) => ({ goals: [...state.goals, optimisticGoal] }));
+
         try {
           const result = await fetchAPI('/data', { userId: user.id, action: 'create', type: 'goal', data: goalData });
           if (result.data) {
-            set((state) => ({ goals: [...state.goals, result.data] }));
+            set((state) => ({
+              goals: state.goals.map((g) => g.id === tempId ? { ...optimisticGoal, ...result.data } : g),
+            }));
           }
         } catch (error) {
           console.error('Error adding goal:', error);
+          set((state) => ({
+            goals: state.goals.filter((g) => g.id !== tempId),
+            lastError: 'Failed to save goal. Please check your connection and try again.',
+          }));
         }
       },
 
@@ -711,14 +796,35 @@ export const useAppStore = create<AppState>()(
       addHabit: async (habitData) => {
         const { user } = get();
         if (!user) return;
-        
+
+        const tempId = `temp-${crypto.randomUUID()}`;
+        const now = new Date().toISOString();
+        const optimisticHabit: Habit = {
+          id: tempId,
+          title: habitData.title,
+          description: habitData.description,
+          frequency: habitData.frequency ?? 'daily',
+          color: habitData.color ?? '#8b5cf6',
+          completions: [],
+          streak: 0,
+          bestStreak: 0,
+          createdAt: now,
+        };
+        set((state) => ({ habits: [...state.habits, optimisticHabit] }));
+
         try {
           const result = await fetchAPI('/data', { userId: user.id, action: 'create', type: 'habit', data: habitData });
           if (result.data) {
-            set((state) => ({ habits: [...state.habits, result.data] }));
+            set((state) => ({
+              habits: state.habits.map((h) => h.id === tempId ? { ...optimisticHabit, ...result.data } : h),
+            }));
           }
         } catch (error) {
           console.error('Error adding habit:', error);
+          set((state) => ({
+            habits: state.habits.filter((h) => h.id !== tempId),
+            lastError: 'Failed to save habit. Please check your connection and try again.',
+          }));
         }
       },
 
@@ -907,6 +1013,9 @@ export const useAppStore = create<AppState>()(
 
       locale: 'en' as Locale,
       setLocale: (locale) => set({ locale }),
+
+      timeFormat: '12h' as '12h' | '24h',
+      setTimeFormat: (fmt) => set({ timeFormat: fmt }),
     }),
     {
       name: 'zen-planner-storage',

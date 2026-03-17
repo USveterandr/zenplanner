@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     }
     
     const body = await request.json();
-    const { message, context } = body as { message: string; context?: any };
+    const { message, context, history } = body as { message: string; context?: any; history?: { role: 'user' | 'assistant'; content: string }[] };
 
     if (!message) {
       return NextResponse.json({ success: false, error: "Message is required" }, { status: 400 });
@@ -40,13 +40,20 @@ export async function POST(request: Request) {
 
     const systemPrompt = `You are a helpful AI productivity advisor for Zen Planner app. Be concise, encouraging, and practical. Help users with task management, goal setting, habit building, and productivity tips.${contextStr ? `\n\nCurrent user data:${contextStr}` : ""}`;
 
+    // Build message array: system + up to last 10 conversation turns + current message
+    const conversationHistory = (history ?? []).slice(-10).map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const aiResponse = await (ai as any).run("@cf/meta/llama-3.1-8b-instruct", {
       messages: [
         { role: "system", content: systemPrompt },
+        ...conversationHistory,
         { role: "user", content: message },
       ],
-      max_tokens: 500,
+      max_tokens: 800,
     }) as { response?: string };
 
     const response = aiResponse.response || "I'm here to help! Try asking me about productivity, task management, or your goals.";
