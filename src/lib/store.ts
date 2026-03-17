@@ -6,22 +6,9 @@ import { getSupabaseClient } from './supabase';
 
 const API_URL = '/api';
 
-async function fetchAPI(endpoint: string, data: any, isRetry = false): Promise<{ success: boolean; user?: any; data?: any; session?: any }> {
+async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean; user?: any; data?: any; session?: any }> {
   // Attach Bearer token from store so server can verify the caller's identity
-  let token = useAppStore.getState().accessToken;
-
-  // If we have no token, try to recover one from Supabase before giving up
-  if (!token) {
-    try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        token = session.access_token;
-        useAppStore.setState({ accessToken: token });
-      }
-    } catch { /* ignore */ }
-  }
-
+  const token = useAppStore.getState().accessToken;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -30,19 +17,6 @@ async function fetchAPI(endpoint: string, data: any, isRetry = false): Promise<{
     headers,
     body: JSON.stringify(data),
   });
-
-  // On 401, try once to refresh the Supabase session and retry
-  if (response.status === 401 && !isRetry) {
-    try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.refreshSession();
-      if (session?.access_token) {
-        useAppStore.setState({ accessToken: session.access_token });
-        return fetchAPI(endpoint, data, true);
-      }
-    } catch { /* ignore */ }
-  }
-
   const result = await response.json() as { success: boolean; error?: string; user?: any; data?: any };
   if (!result.success) {
     throw new Error(result.error || 'API error');
