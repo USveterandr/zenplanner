@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const existingUser = await db.prepare("SELECT id FROM User WHERE id = ?").bind(userId).first();
     if (!existingUser) {
       // Fetch the user's email/name from Supabase so we can populate the row properly
-      let email = "";
+      let email = `${userId}@unknown.local`; // unique fallback — userId is always unique
       let name = "User";
       try {
         const supabase = getSupabaseClient();
@@ -72,19 +72,20 @@ export async function POST(request: Request) {
         if (token !== REVIEWER_TOKEN) {
           const { data } = await supabase.auth.getUser(token);
           if (data.user) {
-            email = data.user.email ?? "";
+            email = data.user.email || email;
             name = (data.user.user_metadata?.full_name as string | undefined)
               || (data.user.user_metadata?.name as string | undefined)
               || email.split("@")[0]
               || "User";
           }
         }
-      } catch { /* ignore — we'll insert with empty email/name as fallback */ }
+      } catch { /* ignore — will use fallback email/name */ }
 
-      await db.prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
+      // INSERT OR IGNORE in case of a race condition (two concurrent requests)
+      await db.prepare("INSERT OR IGNORE INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
         .bind(userId, email, name, "supabase-managed")
         .run();
-      await db.prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
+      await db.prepare("INSERT OR IGNORE INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
         .bind(generateId(), "free", userId)
         .run();
     }
