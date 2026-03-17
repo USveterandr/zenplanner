@@ -7,9 +7,14 @@ import { getSupabaseClient } from './supabase';
 const API_URL = '/api';
 
 async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean; user?: any; data?: any; session?: any }> {
+  // Attach Bearer token from store so server can verify the caller's identity
+  const token = useAppStore.getState().accessToken;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(data),
   });
   const result = await response.json() as { success: boolean; error?: string; user?: any; data?: any };
@@ -296,6 +301,7 @@ const defaultCategories: Category[] = [
 
 interface AppState {
   user: UserAccount | null;
+  accessToken: string | null;
   subscriptionInfo: SubscriptionInfo;
   tasks: Task[];
   goals: Goal[];
@@ -369,6 +375,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       user: null,
+      accessToken: null,
       subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null },
       tasks: [],
       goals: [],
@@ -482,6 +489,7 @@ export const useAppStore = create<AppState>()(
             }
             set({ 
               user: { id: result.user.id, name: result.user.name, email: result.user.email },
+              accessToken: result.session ? (result.session as any).access_token : null,
               subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
             });
             await get().loadUserData();
@@ -495,13 +503,14 @@ export const useAppStore = create<AppState>()(
 
       signIn: async (email, password) => {
         // Hardcoded reviewer account bypass (Google Play review)
-        if (email === 'reviewer@zenplanner.app' && password === 'ZenReview2026!') {
+        if (email === 'reviewer@zenplanner.app' && password === 'Password123') {
           const reviewerUser: UserAccount = { id: 'reviewer-account', name: 'Google Reviewer', email: 'reviewer@zenplanner.app' };
           const now = new Date();
           const trialEnd = new Date(now);
           trialEnd.setDate(trialEnd.getDate() + 7);
           set({
             user: reviewerUser,
+            accessToken: 'reviewer-bypass-token',
             subscription: 'pro',
             subscriptionInfo: { tier: 'pro', startDate: now.toISOString(), trialEndDate: trialEnd.toISOString() },
           });
@@ -521,6 +530,7 @@ export const useAppStore = create<AppState>()(
             }
             set({ 
               user: { id: result.user.id, name: result.user.name, email: result.user.email },
+              accessToken: result.session ? (result.session as any).access_token : null,
             });
             await get().loadUserData();
             return { success: true };
@@ -537,7 +547,8 @@ export const useAppStore = create<AppState>()(
           await supabase.auth.signOut();
         }
         set({ 
-          user: null, 
+          user: null,
+          accessToken: null,
           subscription: 'free', 
           subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null },
           tasks: [],
@@ -922,6 +933,7 @@ export const useAppStore = create<AppState>()(
       },
       partialize: (state) => ({
         user: state.user,
+        accessToken: state.accessToken,
         subscriptionInfo: state.subscriptionInfo,
         subscription: state.subscription,
         locale: state.locale,

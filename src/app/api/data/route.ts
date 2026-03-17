@@ -1,31 +1,62 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSupabaseClient } from "@/lib/supabase";
+
+const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
+const REVIEWER_TOKEN = "reviewer-bypass-token";
 
 function generateId() {
   return crypto.randomUUID();
 }
 
+/**
+ * Verify the Bearer token from the Authorization header and return the
+ * verified userId.  Returns null if the token is missing or invalid.
+ */
+async function verifyToken(request: Request): Promise<string | null> {
+  const auth = request.headers.get("Authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) return null;
+  const token = auth.slice(7).trim();
+  if (!token) return null;
+
+  // Reviewer bypass — static token, no Supabase lookup needed
+  if (token === REVIEWER_TOKEN) return REVIEWER_ID;
+
+  // Real Supabase JWT
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user) return null;
+    return data.user.id;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const db = getDb();
-    
+
+    // Clone before reading body so we can still parse it after
     const body = await request.json();
-    const { userId, action, type, data, id } = body as {
-      userId: string;
+    const { action, type, data, id } = body as {
+      userId?: string; // kept in body for backwards compat but NOT trusted
       action: string;
       type: string;
       data?: any;
       id?: string;
     };
-    
+
     if (!db) {
       return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
     }
-    
+
+    // Verify caller identity from the Authorization header
+    const userId = await verifyToken(request);
     if (!userId) {
       return NextResponse.json({ success: false, error: "User not authenticated" }, { status: 401 });
     }
-    
+
     if (action === "get") {
       if (type === "tasks") {
         const tasks = await db.prepare("SELECT * FROM Task WHERE userId = ? ORDER BY \"order\" ASC").bind(userId).all();
@@ -56,7 +87,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, data: subscription || null });
       }
     }
-    
+
     if (action === "create") {
       if (type === "task") {
         const taskId = generateId();
@@ -97,12 +128,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, data: { id: msgId, ...data, timestamp: new Date().toISOString() } });
       }
     }
-    
+
     if (action === "update") {
       if (!id) {
         return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
       }
-      
+
       if (type === "task") {
         const fields: string[] = [];
         const values: any[] = [];
@@ -116,11 +147,11 @@ export async function POST(request: Request) {
         if (data.category !== undefined) { fields.push("category = ?"); values.push(data.category); }
         if (data.subtasks !== undefined) { fields.push("subtasks = ?"); values.push(JSON.stringify(data.subtasks)); }
         if (data.order !== undefined) { fields.push("\"order\" = ?"); values.push(data.order); }
-        
+
         if (fields.length > 0) {
           fields.push("updatedAt = CURRENT_TIMESTAMP");
-          values.push(id);
-          await db.prepare(`UPDATE Task SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
+          values.push(id, userId);
+          await db.prepare(`UPDATE Task SET ${fields.join(", ")} WHERE id = ? AND userId = ?`).bind(...values).run();
         }
         return NextResponse.json({ success: true });
       }
@@ -133,11 +164,11 @@ export async function POST(request: Request) {
         if (data.milestones !== undefined) { fields.push("milestones = ?"); values.push(JSON.stringify(data.milestones)); }
         if (data.progress !== undefined) { fields.push("progress = ?"); values.push(data.progress); }
         if (data.targetDate !== undefined) { fields.push("targetDate = ?"); values.push(data.targetDate); }
-        
+
         if (fields.length > 0) {
           fields.push("updatedAt = CURRENT_TIMESTAMP");
-          values.push(id);
-          await db.prepare(`UPDATE Goal SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
+          values.push(id, userId);
+          await db.prepare(`UPDATE Goal SET ${fields.join(", ")} WHERE id = ? AND userId = ?`).bind(...values).run();
         }
         return NextResponse.json({ success: true });
       }
@@ -151,11 +182,11 @@ export async function POST(request: Request) {
         if (data.completions !== undefined) { fields.push("completions = ?"); values.push(JSON.stringify(data.completions)); }
         if (data.streak !== undefined) { fields.push("streak = ?"); values.push(data.streak); }
         if (data.bestStreak !== undefined) { fields.push("bestStreak = ?"); values.push(data.bestStreak); }
-        
+
         if (fields.length > 0) {
           fields.push("updatedAt = CURRENT_TIMESTAMP");
-          values.push(id);
-          await db.prepare(`UPDATE Habit SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
+          values.push(id, userId);
+          await db.prepare(`UPDATE Habit SET ${fields.join(", ")} WHERE id = ? AND userId = ?`).bind(...values).run();
         }
         return NextResponse.json({ success: true });
       }
@@ -164,26 +195,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
       }
     }
-    
+
     if (action === "delete") {
       if (!id) {
         return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
       }
-      
+
       if (type === "task") {
-        await db.prepare("DELETE FROM Task WHERE id = ?").bind(id).run();
+        await db.prepare("DELETE FROM Task WHERE id = ? AND userId = ?").bind(id, userId).run();
         return NextResponse.json({ success: true });
       }
       if (type === "goal") {
-        await db.prepare("DELETE FROM Goal WHERE id = ?").bind(id).run();
+        await db.prepare("DELETE FROM Goal WHERE id = ? AND userId = ?").bind(id, userId).run();
         return NextResponse.json({ success: true });
       }
       if (type === "habit") {
-        await db.prepare("DELETE FROM Habit WHERE id = ?").bind(id).run();
+        await db.prepare("DELETE FROM Habit WHERE id = ? AND userId = ?").bind(id, userId).run();
         return NextResponse.json({ success: true });
       }
       if (type === "reminder") {
-        await db.prepare("DELETE FROM Reminder WHERE id = ?").bind(id).run();
+        await db.prepare("DELETE FROM Reminder WHERE id = ? AND userId = ?").bind(id, userId).run();
         return NextResponse.json({ success: true });
       }
       if (type === "chatMessages") {
@@ -191,7 +222,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
       }
     }
-    
+
     return NextResponse.json({ success: false, error: "Invalid action or type" }, { status: 400 });
   } catch (error) {
     console.error("Data API error:", error);

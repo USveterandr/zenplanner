@@ -88,6 +88,7 @@ export default function Home() {
 
           useAppStore.setState({
             user: { id, name, email: email ?? '' },
+            accessToken: session.access_token ?? null,
           });
           await useAppStore.getState().loadUserData();
         }
@@ -1365,7 +1366,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
@@ -1380,7 +1381,7 @@ export default function Home() {
               </div>
             </div>
             {!isMobile && (
-              <nav className="flex items-center gap-1">
+              <nav className="flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar flex-1 lg:flex-none">
                 {tabs.map((tab) => (
                   <Button key={tab.id} variant="ghost" onClick={() => setActiveTab(tab.id)}
                     className={cn('text-white hover:bg-white/10 gap-2', activeTab === tab.id && 'bg-white/20')}>
