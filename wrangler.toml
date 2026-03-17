@@ -13,6 +13,12 @@ binding = "zen_planner_db"
 database_name = "zen-planner-db"
 database_id = "efb0a777-d061-408b-baf5-f0ec60982757"
 
+# R2 bucket for file storage — requires R2 to be enabled on the Cloudflare account.
+# Uncomment once R2 is enabled in the Cloudflare dashboard.
+# [[r2_buckets]]
+# binding = "zen_planner_storage"
+# bucket_name = "zen-planner-storage"
+
 [ai]
 binding = "AI"
 
