@@ -27,12 +27,15 @@ export async function POST(request: Request) {
 
   const statements = [
     `CREATE TABLE IF NOT EXISTS User (
-      id        TEXT PRIMARY KEY,
-      email     TEXT UNIQUE NOT NULL,
-      name      TEXT,
-      password  TEXT NOT NULL DEFAULT 'supabase-managed',
-      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-      updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+      id         TEXT PRIMARY KEY,
+      email      TEXT UNIQUE NOT NULL,
+      name       TEXT,
+      password   TEXT NOT NULL DEFAULT 'supabase-managed',
+      avatarUrl  TEXT,
+      profession TEXT,
+      hobbies    TEXT,
+      createdAt  TEXT NOT NULL DEFAULT (datetime('now')),
+      updatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
     `CREATE TABLE IF NOT EXISTS Subscription (
       id             TEXT PRIMARY KEY,
@@ -149,6 +152,10 @@ export async function POST(request: Request) {
     // Reviewer bypass user
     `INSERT OR IGNORE INTO User (id, email, name, password) VALUES ('00000000-0000-0000-0000-000000000001', 'reviewer@zenplanner.app', 'Reviewer', 'Password123')`,
     `INSERT OR IGNORE INTO Subscription (id, tier, userId) VALUES ('00000000-0000-0000-0000-000000000002', 'free', '00000000-0000-0000-0000-000000000001')`,
+    // New columns for User profile (safe to fail if they already exist)
+    `ALTER TABLE User ADD COLUMN avatarUrl TEXT`,
+    `ALTER TABLE User ADD COLUMN profession TEXT`,
+    `ALTER TABLE User ADD COLUMN hobbies TEXT`,
   ];
 
   const results: { sql: string; ok: boolean; error?: string }[] = [];
@@ -159,8 +166,13 @@ export async function POST(request: Request) {
       await db.prepare(sql).run();
       results.push({ sql: sql.slice(0, 60).replace(/\s+/g, " ").trim() + "…", ok: true });
     } catch (e: any) {
-      failed++;
-      results.push({ sql: sql.slice(0, 60).replace(/\s+/g, " ").trim() + "…", ok: false, error: e?.message });
+      // Ignore "duplicate column name" errors since D1 doesn't support ADD COLUMN IF NOT EXISTS easily
+      if (e?.message?.includes("duplicate column name") || e?.message?.includes("already exists")) {
+        results.push({ sql: sql.slice(0, 60).replace(/\s+/g, " ").trim() + "…", ok: true, error: "Already exists (ignored)" });
+      } else {
+        failed++;
+        results.push({ sql: sql.slice(0, 60).replace(/\s+/g, " ").trim() + "…", ok: false, error: e?.message });
+      }
     }
   }
 

@@ -3,12 +3,15 @@
 -- Or via the /api/migrate endpoint (POST with Authorization: Bearer reviewer-bypass-token)
 
 CREATE TABLE IF NOT EXISTS User (
-  id        TEXT PRIMARY KEY,
-  email     TEXT UNIQUE NOT NULL,
-  name      TEXT,
-  password  TEXT NOT NULL DEFAULT 'supabase-managed',
-  createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-  updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+  id         TEXT PRIMARY KEY,
+  email      TEXT UNIQUE NOT NULL,
+  name       TEXT,
+  password   TEXT NOT NULL DEFAULT 'supabase-managed',
+  avatarUrl  TEXT,
+  profession TEXT,
+  hobbies    TEXT,
+  createdAt  TEXT NOT NULL DEFAULT (datetime('now')),
+  updatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS Subscription (

@@ -12,10 +12,12 @@ import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
   Loader2, Flame, ChevronLeft, ChevronRight, Bell,
-  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2, Download
+  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2, Download, Camera, Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -51,7 +53,7 @@ export default function Home() {
     subscription, setSubscription, user, signUp, signIn, signOut,
     subscriptionInfo, selectPlan, teamMembers, canAddGoal, canAddHabit,
     setLocale, locale, timeFormat, setTimeFormat,
-    lastError, clearLastError,
+    lastError, clearLastError, updateProfile,
   } = useAppStore();
 
   // Local hydration status for Next.js consistency
@@ -235,6 +237,12 @@ export default function Home() {
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editProfession, setEditProfession] = useState('');
+  const [editHobbies, setEditHobbies] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
 
   const formatTime = (time: string) => {
     if (!time || timeFormat === '24h') return time;
@@ -738,6 +746,72 @@ export default function Home() {
 
   const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Check file size (limit to 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setEditAvatarUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    // Optimistic update via store
+    const result = await updateProfile({
+      name: editName,
+      profession: editProfession,
+      hobbies: editHobbies,
+      avatarUrl: editAvatarUrl
+    });
+    
+    if (result.success) {
+      setIsEditingProfile(false);
+      toast.success('Profile updated successfully');
+    } else {
+      toast.error(result.error || 'Failed to update profile');
+    }
+  };
+
+  const handleShareProfile = async () => {
+    if (!user) return;
+    
+    const prof = user.profession ? `a ${user.profession}` : 'using ZenPlanner';
+    const hobs = user.hobbies ? ` I enjoy ${user.hobbies}.` : '';
+    
+    const shareData = {
+      title: `${user.name}'s Profile`,
+      text: `Hi! I'm ${user.name}, ${prof}.${hobs} Connect with me on ZenPlanner!`,
+      url: window.location.origin,
+    };
+
+    if (navigator.share && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        toast.success('Shared successfully!');
+      } catch (err) {
+        // user canceled or failed
+      }
+    } else {
+      // Fallbacks
+      try {
+        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+        toast.success('Profile info copied to clipboard!');
+      } catch (err) {
+        window.location.href = `mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(shareData.text + '\n' + shareData.url)}`;
+      }
+    }
+  };
 
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(calendarMonth, calendarYear);
@@ -1626,36 +1700,119 @@ export default function Home() {
       case 'settings':
         return (
           <div className="h-full flex flex-col p-4 overflow-auto">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Settings className="h-5 w-5 text-gray-500" /> {tr.settings}
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Settings className="h-5 w-5 text-gray-500" /> {tr.settings}
+              </h2>
+              <Button variant="outline" size="sm" onClick={handleShareProfile}>
+                <Share2 className="h-4 w-4 mr-2" /> Share Profile
+              </Button>
+            </div>
             
             <Card className="mb-4">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm">{tr.account}</CardTitle>
+                {!isEditingProfile && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setIsEditingProfile(true);
+                    setEditName(user?.name || '');
+                    setEditProfession(user?.profession || '');
+                    setEditHobbies(user?.hobbies || '');
+                    setEditAvatarUrl(user?.avatarUrl || '');
+                  }}>
+                    <Pencil className="h-4 w-4 mr-1" /> Edit
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-violet-500 rounded-full flex items-center justify-center">
-                    <User className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="font-medium">{user?.name}</div>
-                    <div className="text-sm text-muted-foreground">{user?.email}</div>
-                  </div>
-                </div>
-                
-                <div className="pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium">{tr.currentPlan}</div>
-                      <div className="text-xs text-muted-foreground capitalize">{subscription}</div>
+                {isEditingProfile ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-col items-center gap-3 mb-4">
+                      <div className="relative">
+                        <div className="w-20 h-20 bg-violet-500 rounded-full flex items-center justify-center overflow-hidden border-2 border-muted">
+                          {editAvatarUrl ? (
+                            <img src={editAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="h-10 w-10 text-white" />
+                          )}
+                        </div>
+                        <label className="absolute bottom-0 right-0 p-1.5 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md">
+                          <Camera className="h-4 w-4" />
+                          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                        </label>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Max size 2MB</span>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => setActiveTab('pricing')}>
-                      {tr.changePlan}
-                    </Button>
+
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your Name" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Profession</Label>
+                      <Input value={editProfession} onChange={(e) => setEditProfession(e.target.value)} placeholder="e.g. Software Engineer" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Hobbies / Interests</Label>
+                      <Textarea 
+                        value={editHobbies} 
+                        onChange={(e) => setEditHobbies(e.target.value)} 
+                        placeholder="e.g. Reading, Hiking, Coding"
+                        className="resize-none"
+                        rows={2}
+                      />
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-2">
+                      <Button variant="outline" onClick={() => setIsEditingProfile(false)}>Cancel</Button>
+                      <Button onClick={handleSaveProfile}>Save Changes</Button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-4">
+                      <div className="w-16 h-16 bg-violet-500 rounded-full flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                        {user?.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="h-8 w-8 text-white" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-lg truncate">{user?.name}</div>
+                        <div className="text-sm text-muted-foreground truncate mb-2">{user?.email}</div>
+                        
+                        {user?.profession && (
+                          <div className="text-sm mb-1">
+                            <span className="font-medium text-xs uppercase text-muted-foreground mr-2">Profession</span>
+                            {user.profession}
+                          </div>
+                        )}
+                        
+                        {user?.hobbies && (
+                          <div className="text-sm">
+                            <span className="font-medium text-xs uppercase text-muted-foreground mr-2">Hobbies</span>
+                            {user.hobbies}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2 border-t mt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">{tr.currentPlan}</div>
+                          <div className="text-xs text-muted-foreground capitalize">{subscription}</div>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => setActiveTab('pricing')}>
+                          {tr.changePlan}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
             
@@ -1799,8 +1956,12 @@ export default function Home() {
               </div>
               {/* Avatar + name + sign out: always visible */}
               <div className="flex items-center gap-2">
-                <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4" />
+                <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="h-4 w-4" />
+                  )}
                 </div>
                 <span className="text-sm hidden md:inline-block max-w-[120px] truncate">{user.name}</span>
                 <button onClick={signOut} className="bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors shrink-0" title="Sign out">

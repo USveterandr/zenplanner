@@ -227,6 +227,9 @@ export interface UserAccount {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string;   // base64 data URL or remote URL
+  profession?: string;
+  hobbies?: string;     // comma-separated list
 }
 
 export interface SubscriptionInfo {
@@ -337,6 +340,7 @@ interface AppState {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   loadUserData: () => Promise<void>;
+  updateProfile: (updates: { name?: string; profession?: string; hobbies?: string; avatarUrl?: string }) => Promise<{ success: boolean; error?: string }>;
   
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
@@ -568,6 +572,28 @@ export const useAppStore = create<AppState>()(
           chatMessages: [],
           reminders: [],
         });
+      },
+
+      updateProfile: async (updates) => {
+        const { user, accessToken } = get();
+        if (!user) return { success: false, error: 'Not logged in' };
+        try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+          const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action: 'update_profile', ...updates }),
+          });
+          const result = await res.json() as { success: boolean; error?: string };
+          if (result.success) {
+            set({ user: { ...user, ...updates } });
+            return { success: true };
+          }
+          return { success: false, error: result.error || 'Update failed' };
+        } catch (e: any) {
+          return { success: false, error: e.message };
+        }
       },
 
       loadUserData: async () => {
@@ -1060,8 +1086,7 @@ export const useAppStore = create<AppState>()(
         subscription: state.subscription,
         locale: state.locale,
         timeFormat: state.timeFormat,
-      }),
-    }
+      }),    }
   )
 );
 
