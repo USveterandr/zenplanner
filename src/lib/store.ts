@@ -1010,7 +1010,38 @@ export const useAppStore = create<AppState>()(
           }
 
           if (state.user) {
-            state.loadUserData();
+            // Before loading data, try to ensure we have a fresh access token.
+            // The persisted token may have expired (Supabase JWTs last ~1 hour).
+            // We do this once at startup — NOT inside fetchAPI — to avoid the
+            // retry-loop regression that broke saves previously.
+            const isReviewerToken = state.accessToken === 'reviewer-bypass-token';
+            if (!isReviewerToken && typeof window !== 'undefined') {
+              const supabase = getSupabaseClient();
+              supabase.auth.getSession().then(({ data: { session } }) => {
+                if (session?.access_token) {
+                  // Session is valid (Supabase auto-refreshed it if needed)
+                  useAppStore.setState({ accessToken: session.access_token });
+                } else {
+                  // No valid session — try an explicit refresh
+                  supabase.auth.refreshSession().then(({ data: { session: refreshed } }) => {
+                    if (refreshed?.access_token) {
+                      useAppStore.setState({ accessToken: refreshed.access_token });
+                    }
+                    // Either way, proceed to load data (will 401 if still no token)
+                    useAppStore.getState().loadUserData();
+                  }).catch(() => {
+                    useAppStore.getState().loadUserData();
+                  });
+                  return; // loadUserData called in the then/catch above
+                }
+                useAppStore.getState().loadUserData();
+              }).catch(() => {
+                // getSession failed — fall back to stored token and load anyway
+                state.loadUserData();
+              });
+            } else {
+              state.loadUserData();
+            }
           }
         }
       },
@@ -1020,6 +1051,7 @@ export const useAppStore = create<AppState>()(
         subscriptionInfo: state.subscriptionInfo,
         subscription: state.subscription,
         locale: state.locale,
+        timeFormat: state.timeFormat,
       }),
     }
   )
