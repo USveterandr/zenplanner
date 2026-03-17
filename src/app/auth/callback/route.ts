@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/supabase";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-function generateId() {
-  return crypto.randomUUID();
-}
-
+/**
+ * OAuth callback — server-side entry point.
+ *
+ * With PKCE flow the code exchange MUST happen client-side so that Supabase can
+ * store the resulting session tokens in the browser's (PWA's) localStorage.
+ * If we exchange the code here (server-side, persistSession:false) the tokens
+ * are never written to the client and iPhone PWA users end up permanently
+ * signed-out after every Google OAuth login.
+ *
+ * Strategy: forward all query params to the client-side /auth/confirm page
+ * which calls supabase.auth.exchangeCodeForSession() in the browser.
+ */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -15,46 +21,9 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/`);
   }
 
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error || !data.user) {
-    console.error("OAuth callback error:", error);
-    return NextResponse.redirect(`${origin}/?auth_error=oauth_failed`);
-  }
-
-  // Ensure D1 user row exists for OAuth users
-  try {
-    const env = getCloudflareContext().env;
-    const db = env.zen_planner_db;
-
-    if (db) {
-      const existing = await db
-        .prepare("SELECT id FROM User WHERE id = ?")
-        .bind(data.user.id)
-        .first();
-
-      if (!existing) {
-        const name =
-          (data.user.user_metadata?.full_name as string | undefined) ||
-          (data.user.user_metadata?.name as string | undefined) ||
-          data.user.email?.split("@")[0] ||
-          "User";
-
-        await db
-          .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
-          .bind(data.user.id, data.user.email ?? "", name, "supabase-managed")
-          .run();
-
-        await db
-          .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-          .bind(generateId(), "free", data.user.id)
-          .run();
-      }
-    }
-  } catch (dbError) {
-    console.error("D1 upsert error during OAuth callback:", dbError);
-  }
-
-  return NextResponse.redirect(`${origin}${next}`);
+  // Redirect to the client-side confirmation page with the code intact.
+  const confirmUrl = new URL(`${origin}/auth/confirm`);
+  confirmUrl.searchParams.set("code", code);
+  confirmUrl.searchParams.set("next", next);
+  return NextResponse.redirect(confirmUrl.toString());
 }

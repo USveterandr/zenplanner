@@ -65,12 +65,53 @@ export default function Home() {
       setBypassStoreHydration(true);
     }, 1000);
 
+    const supabase = getSupabaseClient();
+
+    // ── Token bridge for iPhone PWA ──────────────────────────────────────────
+    // When a user signs in via Google OAuth from the PWA on iPhone, iOS opens the
+    // OAuth flow in Safari (not inside the PWA). The /auth/confirm page exchanges
+    // the code in Safari's context, then redirects here with sb_access_token and
+    // sb_refresh_token as query params so the PWA can receive the tokens.
+    // We detect those params, call setSession() to write them into THIS context's
+    // localStorage, populate the store, then strip the params from the URL.
+    const urlParams = new URLSearchParams(window.location.search);
+    const bridgeAccessToken = urlParams.get('sb_access_token');
+    const bridgeRefreshToken = urlParams.get('sb_refresh_token');
+
+    if (bridgeAccessToken && bridgeRefreshToken && supabase) {
+      supabase.auth.setSession({
+        access_token: bridgeAccessToken,
+        refresh_token: bridgeRefreshToken,
+      }).then(async ({ data, error }) => {
+        if (!error && data.session) {
+          const { user: sbUser, session } = data;
+          if (sbUser) {
+            const name =
+              (sbUser.user_metadata?.full_name as string | undefined) ||
+              (sbUser.user_metadata?.name as string | undefined) ||
+              sbUser.email?.split('@')[0] ||
+              'User';
+            useAppStore.setState({
+              user: { id: sbUser.id, name, email: sbUser.email ?? '' },
+              accessToken: session.access_token,
+            });
+            await useAppStore.getState().loadUserData();
+          }
+        }
+        // Always clean the tokens from the URL regardless of outcome
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('sb_access_token');
+        cleanUrl.searchParams.delete('sb_refresh_token');
+        window.history.replaceState({}, '', cleanUrl.toString());
+      });
+      return () => clearTimeout(timer);
+    }
+
     // On mount, ask Supabase for the current session and sync the (possibly refreshed)
     // access token into the store. This handles stale persisted tokens automatically.
     // For OAuth users on iPhone (Safari ITP can wipe the session), if no session is
     // found and the store still thinks the user is logged in, auto sign-out so they
     // get a clear prompt to re-login instead of cryptic save errors.
-    const supabase = getSupabaseClient();
     if (supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         const currentToken = useAppStore.getState().accessToken;

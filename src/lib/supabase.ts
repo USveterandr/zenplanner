@@ -24,6 +24,11 @@ export function getSupabaseClient() {
         persistSession: true,
         autoRefreshToken: true,
         storageKey: 'zen-planner-auth',
+        // PKCE flow ensures the OAuth code is exchanged CLIENT-SIDE so that the
+        // resulting session tokens are written directly into this PWA's localStorage.
+        // Without this, the server-side callback exchanges the code but the tokens
+        // never reach the PWA's isolated localStorage (Safari ITP on "Add to Home Screen").
+        flowType: 'pkce',
       },
     });
   }
