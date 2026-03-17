@@ -48,13 +48,45 @@ export async function POST(request: Request) {
     };
 
     if (!db) {
-      return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Database not configured (no D1 binding)" }, { status: 500 });
     }
 
     // Verify caller identity from the Authorization header
     const userId = await verifyToken(request);
     if (!userId) {
       return NextResponse.json({ success: false, error: "User not authenticated" }, { status: 401 });
+    }
+
+    // Ensure the User row exists in D1. Google OAuth users may have a valid Supabase
+    // JWT but no D1 row if the OAuth callback failed or was skipped (e.g. PWA on iPhone).
+    // We upsert here on every request so the app self-heals without requiring a re-login.
+    const existingUser = await db.prepare("SELECT id FROM User WHERE id = ?").bind(userId).first();
+    if (!existingUser) {
+      // Fetch the user's email/name from Supabase so we can populate the row properly
+      let email = "";
+      let name = "User";
+      try {
+        const supabase = getSupabaseClient();
+        const auth = request.headers.get("Authorization") ?? "";
+        const token = auth.slice(7).trim();
+        if (token !== REVIEWER_TOKEN) {
+          const { data } = await supabase.auth.getUser(token);
+          if (data.user) {
+            email = data.user.email ?? "";
+            name = (data.user.user_metadata?.full_name as string | undefined)
+              || (data.user.user_metadata?.name as string | undefined)
+              || email.split("@")[0]
+              || "User";
+          }
+        }
+      } catch { /* ignore — we'll insert with empty email/name as fallback */ }
+
+      await db.prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
+        .bind(userId, email, name, "supabase-managed")
+        .run();
+      await db.prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
+        .bind(generateId(), "free", userId)
+        .run();
     }
 
     if (action === "get") {
@@ -224,8 +256,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: false, error: "Invalid action or type" }, { status: 400 });
-  } catch (error) {
-    console.error("Data API error:", error);
+  } catch (error: any) {
+    console.error("Data API error:", error?.message || error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

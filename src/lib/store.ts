@@ -642,9 +642,8 @@ export const useAppStore = create<AppState>()(
               tasks: state.tasks.map((t) => t.id === tempId ? { ...optimisticTask, ...result.data } : t),
             }));
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error adding task:', error);
-          // Roll back the optimistic task and surface the error
           set((state) => ({
             tasks: state.tasks.filter((t) => t.id !== tempId),
             lastError: 'Failed to save task. Please check your connection and try again.',
@@ -716,7 +715,7 @@ export const useAppStore = create<AppState>()(
               goals: state.goals.map((g) => g.id === tempId ? { ...optimisticGoal, ...result.data } : g),
             }));
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error adding goal:', error);
           set((state) => ({
             goals: state.goals.filter((g) => g.id !== tempId),
@@ -796,7 +795,7 @@ export const useAppStore = create<AppState>()(
               habits: state.habits.map((h) => h.id === tempId ? { ...optimisticHabit, ...result.data } : h),
             }));
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error adding habit:', error);
           set((state) => ({
             habits: state.habits.filter((h) => h.id !== tempId),
