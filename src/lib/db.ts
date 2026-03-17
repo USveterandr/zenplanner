@@ -26,18 +26,6 @@ export function getAI(): CloudflareEnv["AI"] | null {
   }
 }
 
-/**
- * Safely get the Cloudflare R2 storage binding.
- * Returns null when running outside of Cloudflare Workers.
- */
-export function getBucket(): CloudflareEnv["zen_planner_storage"] | null {
-  try {
-    return getCloudflareContext().env.zen_planner_storage ?? null;
-  } catch {
-    return null;
-  }
-}
-
 const generateId = () => crypto.randomUUID();
 
 // User functions
@@ -411,15 +399,3 @@ export async function updateTeamMember(env: Env, id: string, updates: { name?: s
   ).bind(...values).run();
 }
 
-// Storage functions for R2
-export async function uploadFile(env: Env, key: string, body: ArrayBuffer, contentType: string) {
-  await env.zen_planner_storage.put(key, body, { httpMetadata: { contentType } });
-}
-
-export async function getFile(env: Env, key: string) {
-  return await env.zen_planner_storage.get(key);
-}
-
-export async function deleteFile(env: Env, key: string) {
-  await env.zen_planner_storage.delete(key);
-}

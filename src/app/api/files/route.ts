@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getBucket } from "@/lib/db";
+import { getSupabaseClient } from "@/lib/supabase";
 
 /**
- * R2 file storage API
+ * Supabase file storage API
  *
  * PUT  /api/files?key=<key>&userId=<userId>  — upload a file (body = raw bytes)
  * GET  /api/files?key=<key>&userId=<userId>  — download a file
@@ -12,6 +12,8 @@ import { getBucket } from "@/lib/db";
  * access their own files.
  */
 
+const BUCKET_NAME = "zen-planner-storage";
+
 function scopedKey(userId: string, key: string) {
   // Prevent path traversal
   const sanitized = key.replace(/\.\./g, "").replace(/^\/+/, "");
@@ -20,11 +22,7 @@ function scopedKey(userId: string, key: string) {
 
 export async function PUT(request: Request) {
   try {
-    const bucket = getBucket();
-
-    if (!bucket) {
-      return NextResponse.json({ success: false, error: "Storage not configured" }, { status: 500 });
-    }
+    const supabase = getSupabaseClient();
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -40,11 +38,19 @@ export async function PUT(request: Request) {
     const contentType = request.headers.get("content-type") || "application/octet-stream";
     const body = await request.arrayBuffer();
 
-    await bucket.put(scopedKey(userId, key), body, {
-      httpMetadata: { contentType },
-    });
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(scopedKey(userId, key), body, {
+        contentType,
+        upsert: true
+      });
 
-    return NextResponse.json({ success: true, key: scopedKey(userId, key) });
+    if (error) {
+      console.error("Supabase Storage PUT error:", error);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, key: data.path });
   } catch (error) {
     console.error("Files PUT error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
@@ -53,11 +59,7 @@ export async function PUT(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const bucket = getBucket();
-
-    if (!bucket) {
-      return NextResponse.json({ success: false, error: "Storage not configured" }, { status: 500 });
-    }
+    const supabase = getSupabaseClient();
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -70,14 +72,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: "key is required" }, { status: 400 });
     }
 
-    const object = await bucket.get(scopedKey(userId, key));
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .download(scopedKey(userId, key));
 
-    if (!object) {
+    if (error || !data) {
       return NextResponse.json({ success: false, error: "File not found" }, { status: 404 });
     }
 
-    const contentType = object.httpMetadata?.contentType || "application/octet-stream";
-    const arrayBuffer = await object.arrayBuffer();
+    const contentType = data.type || "application/octet-stream";
+    const arrayBuffer = await data.arrayBuffer();
 
     return new Response(arrayBuffer, {
       headers: {
@@ -93,11 +97,7 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const bucket = getBucket();
-
-    if (!bucket) {
-      return NextResponse.json({ success: false, error: "Storage not configured" }, { status: 500 });
-    }
+    const supabase = getSupabaseClient();
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -110,7 +110,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: "key is required" }, { status: 400 });
     }
 
-    await bucket.delete(scopedKey(userId, key));
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .remove([scopedKey(userId, key)]);
+
+    if (error) {
+      console.error("Supabase Storage DELETE error:", error);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
