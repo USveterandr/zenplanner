@@ -571,8 +571,11 @@ export const useAppStore = create<AppState>()(
       },
 
       loadUserData: async () => {
-        const { user } = get();
+        const { user, accessToken } = get();
         if (!user) return;
+        // If there's no token (session expired/cleared), skip — no point making
+        // 7 parallel 401 requests. The page.tsx mount effect will handle sign-out.
+        if (!accessToken) return;
         
         set({ isLoading: true });
         try {
@@ -1010,10 +1013,11 @@ export const useAppStore = create<AppState>()(
           }
 
           if (state.user) {
-            // Before loading data, try to ensure we have a fresh access token.
-            // The persisted token may have expired (Supabase JWTs last ~1 hour).
-            // We do this once at startup — NOT inside fetchAPI — to avoid the
-            // retry-loop regression that broke saves previously.
+            // Before loading data, ensure we have a fresh access token.
+            // The persisted token may have expired (Supabase JWTs last ~1 hour),
+            // and on iPhone Safari, ITP can wipe the Supabase session from
+            // localStorage entirely. We handle both cases here at startup —
+            // NOT inside fetchAPI — to avoid the retry-loop regression.
             const isReviewerToken = state.accessToken === 'reviewer-bypass-token';
             if (!isReviewerToken && typeof window !== 'undefined') {
               const supabase = getSupabaseClient();
@@ -1021,22 +1025,27 @@ export const useAppStore = create<AppState>()(
                 if (session?.access_token) {
                   // Session is valid (Supabase auto-refreshed it if needed)
                   useAppStore.setState({ accessToken: session.access_token });
+                  useAppStore.getState().loadUserData();
                 } else {
-                  // No valid session — try an explicit refresh
+                  // No valid session in Supabase storage — try an explicit refresh
                   supabase.auth.refreshSession().then(({ data: { session: refreshed } }) => {
                     if (refreshed?.access_token) {
                       useAppStore.setState({ accessToken: refreshed.access_token });
+                    } else {
+                      // Session is truly gone (ITP cleared it, or OAuth token expired).
+                      // Clear the access token so the app shows "session expired" instead
+                      // of silently failing every save with a cryptic error.
+                      useAppStore.setState({ accessToken: null });
                     }
-                    // Either way, proceed to load data (will 401 if still no token)
                     useAppStore.getState().loadUserData();
                   }).catch(() => {
+                    useAppStore.setState({ accessToken: null });
                     useAppStore.getState().loadUserData();
                   });
-                  return; // loadUserData called in the then/catch above
+                  return;
                 }
-                useAppStore.getState().loadUserData();
               }).catch(() => {
-                // getSession failed — fall back to stored token and load anyway
+                // getSession threw — fall back to stored token and load anyway
                 state.loadUserData();
               });
             } else {

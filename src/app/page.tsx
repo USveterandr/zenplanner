@@ -67,11 +67,25 @@ export default function Home() {
 
     // On mount, ask Supabase for the current session and sync the (possibly refreshed)
     // access token into the store. This handles stale persisted tokens automatically.
+    // For OAuth users on iPhone (Safari ITP can wipe the session), if no session is
+    // found and the store still thinks the user is logged in, auto sign-out so they
+    // get a clear prompt to re-login instead of cryptic save errors.
     const supabase = getSupabaseClient();
     if (supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
+        const currentToken = useAppStore.getState().accessToken;
+        const currentUser = useAppStore.getState().user;
+        const isReviewer = currentToken === 'reviewer-bypass-token';
+
         if (session?.access_token) {
           useAppStore.setState({ accessToken: session.access_token });
+        } else if (currentUser && !isReviewer && !session) {
+          // User appears logged-in but Supabase has no valid session.
+          // This happens on iPhone when Safari ITP clears localStorage.
+          // Sign them out cleanly and show a helpful message.
+          useAppStore.getState().signOut().then(() => {
+            toast.error('Your session expired. Please sign in again.');
+          });
         }
       });
     }
