@@ -294,20 +294,26 @@ export default function Home() {
 
   // All useMemo hooks MUST be before any conditional returns
   const calendarEvents = useMemo(() => getCalendarEvents(tasks, goals), [tasks, goals]);
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const today = useMemo(() => {
+    if (!isHydrated) return '';
+    return new Date().toISOString().split('T')[0];
+  }, [isHydrated]);
   const stats = useMemo(() => calculateStats(tasks), [tasks]);
   const pendingTasks = useMemo(() => tasks.filter(t => !t.completed).length, [tasks]);
   const todayTasks = useMemo(() => getTasksForDate(tasks, today), [tasks, today]);
   const selectedDateTasks = useMemo(() => selectedDate ? getTasksForDate(tasks, selectedDate) : [], [tasks, selectedDate]);
   const trialActive = useMemo(() => isTrialActive(subscriptionInfo), [subscriptionInfo]);
   const trialDaysLeft = useMemo(() => getTrialDaysRemaining(subscriptionInfo), [subscriptionInfo]);
-  const dueReminders = useMemo(() => tasks.filter(t => {
-    if (t.completed || !t.dueDate || !t.reminderMinutesBefore) return false;
-    const dueDateTime = new Date(`${t.dueDate}T${t.dueTime || '23:59'}`);
-    const reminderTime = new Date(dueDateTime.getTime() - t.reminderMinutesBefore * 60000);
-    const now = new Date();
-    return now >= reminderTime && now <= dueDateTime;
-  }), [tasks]);
+  const dueReminders = useMemo(() => {
+    if (!isHydrated) return [];
+    return tasks.filter(t => {
+      if (t.completed || !t.dueDate || !t.reminderMinutesBefore) return false;
+      const dueDateTime = new Date(`${t.dueDate}T${t.dueTime || '23:59'}`);
+      const reminderTime = new Date(dueDateTime.getTime() - t.reminderMinutesBefore * 60000);
+      const now = new Date();
+      return now >= reminderTime && now <= dueDateTime;
+    });
+  }, [tasks, isHydrated]);
 
   // Now we can do the conditional return AFTER all hooks
   if (!_hasHydrated) {
