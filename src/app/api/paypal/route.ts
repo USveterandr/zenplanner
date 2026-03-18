@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       const accessToken = await getPayPalAccessToken();
       const base = getPayPalBaseUrl();
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://zenplanner.isaactrinidadllc.workers.dev";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://zen-planner.isaactrinidadllc.workers.dev";
 
       const subscriptionPayload = {
         plan_id: planId,

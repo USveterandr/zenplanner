@@ -1,4 +1,4 @@
-name = "zenplanner"
+name = "zen-planner"
 main = ".open-next/worker.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
@@ -19,5 +19,5 @@ binding = "AI"
 RESEND_API_KEY = ""
 NEXT_PUBLIC_SUPABASE_URL = "https://rskoyicmoltbsrnxgogy.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_jAgJ1_trKerlqDlm11HdTw_OlrFJtJz"
-NEXT_PUBLIC_APP_URL = "https://zenplanner.isaactrinidadllc.workers.dev"
+NEXT_PUBLIC_APP_URL = "https://zen-planner.isaactrinidadllc.workers.dev"
 PAYPAL_ENVIRONMENT = "SANDBOX"
