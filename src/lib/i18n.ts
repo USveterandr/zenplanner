@@ -192,6 +192,7 @@ export interface Translations {
   currentPlanBadge: string;
   startTrial: string;
   selectPlan: string;
+  planSelected: string;
 
   // Header
   pendingCount: string;
@@ -366,6 +367,7 @@ const en: Translations = {
   currentPlanBadge: 'Current Plan',
   startTrial: 'Start Free Trial',
   selectPlan: 'Select Plan',
+  planSelected: 'Plan selected! Welcome to Zen Planner.',
 
   pendingCount: 'pending',
   trial: 'Trial',
@@ -538,6 +540,7 @@ const es: Translations = {
   currentPlanBadge: 'Plan Actual',
   startTrial: 'Iniciar Prueba Gratis',
   selectPlan: 'Seleccionar Plan',
+  planSelected: 'Plan seleccionado. Bienvenido a Zen Planner.',
 
   pendingCount: 'pendientes',
   trial: 'Prueba',
@@ -710,6 +713,7 @@ const zh: Translations = {
   currentPlanBadge: '当前计划',
   startTrial: '开始免费试用',
   selectPlan: '选择计划',
+  planSelected: '计划已选择！欢迎使用 Zen Planner。',
 
   pendingCount: '待处理',
   trial: '试用',
@@ -882,6 +886,7 @@ const hi: Translations = {
   currentPlanBadge: 'वर्तमान प्लान',
   startTrial: 'मुफ्त परीक्षण शुरू करें',
   selectPlan: 'प्लान चुनें',
+  planSelected: 'प्लान चुना गया! Zen Planner में आपका स्वागत है।',
 
   pendingCount: 'लंबित',
   trial: 'परीक्षण',
@@ -1054,6 +1059,7 @@ const fr: Translations = {
   currentPlanBadge: 'Plan Actuel',
   startTrial: 'Commencer l\'Essai Gratuit',
   selectPlan: 'Sélectionner le Plan',
+  planSelected: 'Plan sélectionné ! Bienvenue sur Zen Planner.',
 
   pendingCount: 'en attente',
   trial: 'Essai',

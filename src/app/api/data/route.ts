@@ -4,7 +4,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
 const REVIEWER_TOKEN = "reviewer-bypass-token";
-const EARLY_ADOPTER_LIMIT = 100;
+const EARLY_ADOPTER_LIMIT = 30;
 
 function generateId() {
   return crypto.randomUUID();
@@ -175,6 +175,12 @@ export async function POST(request: Request) {
     }
 
     if (action === "update") {
+      // Subscription updates use userId, not id — handle before the id check
+      if (type === "subscription") {
+        await db.prepare("UPDATE Subscription SET tier = ? WHERE userId = ?").bind(data.tier, userId).run();
+        return NextResponse.json({ success: true });
+      }
+
       if (!id) {
         return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
       }
@@ -233,10 +239,6 @@ export async function POST(request: Request) {
           values.push(id, userId);
           await db.prepare(`UPDATE Habit SET ${fields.join(", ")} WHERE id = ? AND userId = ?`).bind(...values).run();
         }
-        return NextResponse.json({ success: true });
-      }
-      if (type === "subscription") {
-        await db.prepare("UPDATE Subscription SET tier = ? WHERE userId = ?").bind(data.tier, userId).run();
         return NextResponse.json({ success: true });
       }
     }

@@ -397,8 +397,9 @@ export default function Home() {
   };
 
   const handleSelectPlan = async (tier: SubscriptionTier) => {
-    // All features are now free - just update the subscription
-    selectPlan(tier);
+    await selectPlan(tier);
+    setActiveTab('tasks');
+    toast.success(tr.planSelected || 'Plan selected! Welcome to Zen Planner.');
   };
 
   // Quick add handlers for calendar
@@ -677,23 +678,25 @@ export default function Home() {
   }
 
   // Show onboarding welcome screen for new users
-  if (user && !showOnboarding && subscription === 'free') {
-    const isEarlyAdopter = subscriptionInfo.isEarlyAdopter;
+  // Non-early-adopters on free tier auto-redirect to pricing tab (handled by useEffect below)
+  const isNonEarlyAdopterOnFree = user && subscription === 'free' && !subscriptionInfo.isEarlyAdopter;
 
+  // Auto-redirect non-early-adopters on free tier to pricing tab
+  useEffect(() => {
+    if (isNonEarlyAdopterOnFree && !showOnboarding) {
+      setShowOnboarding(true);
+      setActiveTab('pricing');
+    }
+  }, [isNonEarlyAdopterOnFree, showOnboarding]);
+
+  if (user && !showOnboarding && subscription === 'free' && subscriptionInfo.isEarlyAdopter) {
     return (
       <div className="min-h-screen bg-linear-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 p-4 flex items-center justify-center">
         <div className="max-w-md mx-auto text-center">
-          <div className={cn(
-            "inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg",
-            isEarlyAdopter
-              ? "bg-linear-to-br from-amber-500 to-yellow-600"
-              : "bg-linear-to-br from-violet-500 to-indigo-600"
-          )}>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-linear-to-br from-amber-500 to-yellow-600">
             <Crown className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('welcomeUser', { name: user.name })}</h1>
-          {isEarlyAdopter ? (
-            <>
               <Badge className="bg-amber-500 text-white mb-3">{tr.earlyAdopter}</Badge>
               <p className="text-muted-foreground mb-6">{tr.earlyAdopterWelcome}</p>
               <Button
@@ -703,22 +706,6 @@ export default function Home() {
               >
                 {tr.getStarted}
               </Button>
-            </>
-          ) : (
-            <>
-              <p className="text-muted-foreground mb-6">{tr.choosePlanToStart}</p>
-              <Button
-                className="bg-linear-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
-                size="lg"
-                onClick={() => {
-                  setShowOnboarding(true);
-                  setActiveTab('pricing');
-                }}
-              >
-                {tr.viewPlans}
-              </Button>
-            </>
-          )}
         </div>
       </div>
     );
