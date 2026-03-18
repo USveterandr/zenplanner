@@ -500,7 +500,14 @@ export const useAppStore = create<AppState>()(
               });
             }
             set({ 
-              user: { id: result.user.id, name: result.user.name, email: result.user.email },
+              user: { 
+                id: result.user.id, 
+                name: result.user.name, 
+                email: result.user.email,
+                avatarUrl: result.user.avatarUrl,
+                profession: result.user.profession,
+                hobbies: result.user.hobbies,
+              },
               accessToken: result.session ? (result.session as any).access_token : null,
               subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
             });
@@ -544,7 +551,14 @@ export const useAppStore = create<AppState>()(
               });
             }
             set({ 
-              user: { id: result.user.id, name: result.user.name, email: result.user.email },
+              user: { 
+                id: result.user.id, 
+                name: result.user.name, 
+                email: result.user.email,
+                avatarUrl: result.user.avatarUrl,
+                profession: result.user.profession,
+                hobbies: result.user.hobbies,
+              },
               accessToken: result.session ? (result.session as any).access_token : null,
             });
             await get().loadUserData();

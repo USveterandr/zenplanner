@@ -63,9 +63,10 @@ function AuthConfirmInner() {
         user.email?.split('@')[0] ||
         'User';
 
-      // Best-effort: ensure D1 user row exists
+      // Ensure D1 user row exists and retrieve saved profile fields
+      let profile: { name?: string; avatarUrl?: string; profession?: string; hobbies?: string } = {};
       try {
-        await fetch('/api/auth', {
+        const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -75,13 +76,22 @@ function AuthConfirmInner() {
             name,
           }),
         });
+        const data = await res.json() as { success: boolean; profile?: typeof profile };
+        if (data.profile) profile = data.profile;
       } catch {
         // non-fatal
       }
 
       // Write user + token into Zustand store for this context
       useAppStore.setState({
-        user: { id: user.id, name, email: user.email ?? '' },
+        user: { 
+          id: user.id, 
+          name: profile.name || name, 
+          email: user.email ?? '',
+          avatarUrl: profile.avatarUrl,
+          profession: profile.profession,
+          hobbies: profile.hobbies,
+        },
         accessToken: session.access_token,
       });
       await useAppStore.getState().loadUserData();

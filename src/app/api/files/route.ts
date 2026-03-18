@@ -50,7 +50,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, key: data.path });
+    // Return the public URL for the uploaded file
+    const { data: urlData } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(scopedKey(userId, key));
+
+    return NextResponse.json({ success: true, key: data.path, publicUrl: urlData.publicUrl });
   } catch (error) {
     console.error("Files PUT error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });

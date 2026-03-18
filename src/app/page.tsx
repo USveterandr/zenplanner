@@ -159,17 +159,28 @@ export default function Home() {
             'User';
 
           // Ensure D1 row exists for OAuth users via the existing login endpoint
+          // and retrieve any saved profile fields (avatarUrl, profession, hobbies)
+          let profile: { name?: string; avatarUrl?: string; profession?: string; hobbies?: string } = {};
           try {
-            await fetch('/api/auth', {
+            const res = await fetch('/api/auth', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'oauth_sync', userId: id, email, name }),
             });
+            const data = await res.json() as { success: boolean; profile?: typeof profile };
+            if (data.profile) profile = data.profile;
             // Best-effort — ignore errors here
           } catch { /* noop */ }
 
           useAppStore.setState({
-            user: { id, name, email: email ?? '' },
+            user: { 
+              id, 
+              name: profile.name || name, 
+              email: email ?? '',
+              avatarUrl: profile.avatarUrl,
+              profession: profile.profession,
+              hobbies: profile.hobbies,
+            },
             accessToken: session.access_token ?? null,
           });
           await useAppStore.getState().loadUserData();
@@ -243,6 +254,7 @@ export default function Home() {
   const [editProfession, setEditProfession] = useState('');
   const [editHobbies, setEditHobbies] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const formatTime = (time: string) => {
     if (!time || timeFormat === '24h') return time;
@@ -753,7 +765,7 @@ export default function Home() {
   const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -763,11 +775,34 @@ export default function Home() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setEditAvatarUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (!user) {
+      toast.error('You must be signed in to upload an avatar');
+      return;
+    }
+
+    // Determine file extension from MIME type
+    const ext = file.type.split('/')[1] || 'png';
+    const key = `avatar.${ext}`;
+
+    setIsUploadingAvatar(true);
+    try {
+      const res = await fetch(`/api/files?key=${encodeURIComponent(key)}&userId=${encodeURIComponent(user.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      const data = await res.json() as { success: boolean; publicUrl?: string; error?: string };
+      if (data.success && data.publicUrl) {
+        setEditAvatarUrl(data.publicUrl);
+        toast.success('Avatar uploaded!');
+      } else {
+        toast.error(data.error || 'Failed to upload avatar');
+      }
+    } catch {
+      toast.error('Failed to upload avatar');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -1735,16 +1770,21 @@ export default function Home() {
                   <div className="space-y-4">
                     <div className="flex flex-col items-center gap-3 mb-4">
                       <div className="relative">
-                        <div className="w-20 h-20 bg-violet-500 rounded-full flex items-center justify-center overflow-hidden border-2 border-muted">
+                        <div className="w-20 h-20 bg-violet-500 rounded-full flex items-center justify-center overflow-hidden border-2 border-muted relative">
                           {editAvatarUrl ? (
                             <img src={editAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
                             <User className="h-10 w-10 text-white" />
                           )}
+                          {isUploadingAvatar && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
+                              <Loader2 className="h-6 w-6 text-white animate-spin" />
+                            </div>
+                          )}
                         </div>
-                        <label className="absolute bottom-0 right-0 p-1.5 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md">
+                        <label className={`absolute bottom-0 right-0 p-1.5 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md ${isUploadingAvatar ? 'pointer-events-none opacity-50' : ''}`}>
                           <Camera className="h-4 w-4" />
-                          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={isUploadingAvatar} />
                         </label>
                       </div>
                       <span className="text-xs text-muted-foreground">Max size 2MB</span>
@@ -1772,8 +1812,10 @@ export default function Home() {
                     </div>
 
                     <div className="flex gap-2 justify-end pt-2">
-                      <Button variant="outline" onClick={() => setIsEditingProfile(false)}>Cancel</Button>
-                      <Button onClick={handleSaveProfile}>Save Changes</Button>
+                      <Button variant="outline" onClick={() => setIsEditingProfile(false)} disabled={isUploadingAvatar}>Cancel</Button>
+                      <Button onClick={handleSaveProfile} disabled={isUploadingAvatar}>
+                        {isUploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Uploading...</> : 'Save Changes'}
+                      </Button>
                     </div>
                   </div>
                 ) : (

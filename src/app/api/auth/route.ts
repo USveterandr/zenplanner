@@ -32,9 +32,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
       }
       const existing = await db
-        .prepare("SELECT id FROM User WHERE id = ?")
+        .prepare("SELECT id, name, avatarUrl, profession, hobbies FROM User WHERE id = ?")
         .bind(userId)
-        .first();
+        .first() as { id: string; name?: string; avatarUrl?: string; profession?: string; hobbies?: string } | null;
 
       if (!existing) {
         const displayName = name || email.split("@")[0];
@@ -46,9 +46,18 @@ export async function POST(request: Request) {
           .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
           .bind(generateId(), "free", userId)
           .run();
+        return NextResponse.json({ success: true, profile: { name: displayName } });
       }
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ 
+        success: true, 
+        profile: {
+          name: existing.name,
+          avatarUrl: existing.avatarUrl,
+          profession: existing.profession,
+          hobbies: existing.hobbies,
+        }
+      });
     }
 
     // ── REVIEWER BYPASS (Google Play review account) ─────────────────────────
