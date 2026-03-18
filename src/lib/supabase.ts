@@ -24,11 +24,11 @@ export function getSupabaseClient() {
         persistSession: true,
         autoRefreshToken: true,
         storageKey: 'zen-planner-auth',
-        // PKCE flow ensures the OAuth code is exchanged CLIENT-SIDE so that the
-        // resulting session tokens are written directly into this PWA's localStorage.
-        // Without this, the server-side callback exchanges the code but the tokens
-        // never reach the PWA's isolated localStorage (Safari ITP on "Add to Home Screen").
-        flowType: 'pkce',
+        // Implicit flow returns tokens directly in the URL hash fragment after
+        // OAuth — no PKCE code verifier needed. This avoids the "code verifier
+        // not found in storage" error on iPhone where iOS opens OAuth in Safari
+        // (a separate context with its own isolated localStorage).
+        flowType: 'implicit',
       },
     });
   }

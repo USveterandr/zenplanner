@@ -3,28 +3,27 @@
 /**
  * Client-side OAuth confirmation page.
  *
- * WHY THIS EXISTS:
- *   With PKCE flow, the OAuth code exchange happens HERE (in the browser) so
- *   that Supabase writes the session tokens into the client's localStorage.
+ * Handles TWO auth flows:
  *
- * iPhone PWA isolation problem & fix:
- *   - Safari gives each PWA its own isolated localStorage separate from the
- *     Safari browser's localStorage.
- *   - When the user taps "Continue with Google" from the PWA, iOS opens the
- *     OAuth flow in Safari (not inside the PWA). After Google redirects back
- *     to /auth/callback → /auth/confirm, this page runs IN SAFARI.
- *   - The exchange succeeds and tokens land in Safari's localStorage.
- *   - But the PWA (separate context) never sees those tokens.
+ * 1. **Implicit flow (primary)** — After Google OAuth, Supabase redirects here
+ *    with tokens in the URL hash fragment (#access_token=...&refresh_token=...).
+ *    The Supabase client automatically detects the hash, sets the session, and
+ *    fires a SIGNED_IN event. No code verifier is needed, which avoids the
+ *    "PKCE code verifier not found" error on iPhone where iOS opens OAuth in
+ *    Safari (a separate context with isolated localStorage).
  *
- *   Fix: after a successful exchange, embed the access_token and refresh_token
- *   in the redirect URL as query params (short-lived, for the one-time redirect
- *   only). The main page (/auth/token-bridge) reads these params, calls
- *   supabase.auth.setSession(), and removes them from the URL.
- *   This bridges the token across the Safari → PWA context boundary.
+ * 2. **PKCE fallback** — If a ?code= query param is present (from the old
+ *    /auth/callback redirect), attempt exchangeCodeForSession as a fallback.
+ *
+ * iPhone PWA token bridge:
+ *   After a successful sign-in, tokens are passed as query params in the
+ *   redirect to the main page. The main page detects these and calls
+ *   supabase.auth.setSession() to bridge tokens into the PWA's isolated
+ *   localStorage.
  */
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 
@@ -33,26 +32,21 @@ function Spinner() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-violet-700 text-sm">Completing sign-in…</p>
+        <p className="text-violet-700 text-sm">Completing sign-in&hellip;</p>
       </div>
     </div>
   );
 }
 
 function AuthConfirmInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
+  const handledRef = useRef(false);
 
   useEffect(() => {
-    const code = searchParams.get('code');
-    const next = searchParams.get('next') ?? '/';
-
-    if (!code) {
-      router.replace('/');
-      return;
-    }
+    if (handledRef.current) return;
+    handledRef.current = true;
 
     const supabase = getSupabaseClient();
     if (!supabase) {
@@ -61,16 +55,8 @@ function AuthConfirmInner() {
       return;
     }
 
-    supabase.auth.exchangeCodeForSession(code).then(async ({ data, error }) => {
-      if (error || !data.session) {
-        console.error('OAuth confirm error:', error);
-        setErrorMsg(error?.message ?? 'OAuth sign-in failed');
-        setStatus('error');
-        return;
-      }
-
-      const { user, session } = data;
-
+    const completeSignIn = async (session: { user: any; access_token: string; refresh_token: string }, next: string) => {
+      const { user } = session;
       const name =
         (user.user_metadata?.full_name as string | undefined) ||
         (user.user_metadata?.name as string | undefined) ||
@@ -93,24 +79,74 @@ function AuthConfirmInner() {
         // non-fatal
       }
 
-      // Write user + token into the Zustand store for this context (Safari browser).
-      // This handles the case where the user is using the app directly in Safari.
+      // Write user + token into Zustand store for this context
       useAppStore.setState({
         user: { id: user.id, name, email: user.email ?? '' },
         accessToken: session.access_token,
       });
       await useAppStore.getState().loadUserData();
 
-      // Bridge tokens to the PWA context by passing them as query params.
-      // The main page detects these and calls supabase.auth.setSession() so the
-      // PWA's isolated localStorage receives the tokens too.
-      // We use window.location.href (hard navigation) so the URL bar updates and
-      // the user is taken to the app root — whether in Safari or the PWA.
+      // Bridge tokens to the PWA context via query params
       const bridgeUrl = new URL(window.location.origin + next);
       bridgeUrl.searchParams.set('sb_access_token', session.access_token);
       bridgeUrl.searchParams.set('sb_refresh_token', session.refresh_token);
       window.location.href = bridgeUrl.toString();
-    });
+    };
+
+    const handleAuth = async () => {
+      // ── PKCE fallback: ?code= query param from /auth/callback ──────────
+      const code = searchParams.get('code');
+      const next = searchParams.get('next') ?? '/';
+
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error || !data.session) {
+          console.error('OAuth confirm (PKCE) error:', error);
+          setErrorMsg(error?.message ?? 'OAuth sign-in failed');
+          setStatus('error');
+          return;
+        }
+        await completeSignIn(data.session as any, next);
+        return;
+      }
+
+      // ── Implicit flow: tokens in URL hash fragment ─────────────────────
+      // The Supabase client automatically processes #access_token=... from
+      // the URL hash during initialization. We wait for the SIGNED_IN event.
+
+      let resolved = false;
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          setErrorMsg('Sign-in timed out. Please try again.');
+          setStatus('error');
+        }
+      }, 15000);
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (resolved) return;
+          if (event === 'SIGNED_IN' && session) {
+            resolved = true;
+            clearTimeout(timeout);
+            subscription.unsubscribe();
+            await completeSignIn(session as any, '/');
+          }
+        }
+      );
+
+      // In case the session was already set before our listener registered
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (!resolved && existingSession) {
+        resolved = true;
+        clearTimeout(timeout);
+        subscription.unsubscribe();
+        await completeSignIn(existingSession as any, '/');
+      }
+    };
+
+    handleAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
