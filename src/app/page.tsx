@@ -910,7 +910,7 @@ export default function Home() {
   };
 
   const renderPricing = () => (
-    <div className="h-full flex flex-col p-4 overflow-auto">
+    <div className="h-full min-h-0 flex flex-col p-4 overflow-auto">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold mb-2">{tr.appName}</h2>
         <p className="text-muted-foreground">{tr.allFeaturesFree}</p>
@@ -964,7 +964,7 @@ export default function Home() {
           return matchesSearch && matchesStatus && matchesPriority;
         });
         return (
-          <div className="h-full flex flex-col p-4">
+          <div className="h-full min-h-0 flex flex-col p-4">
             <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
               <ListTodo className="h-5 w-5 text-violet-500" /> {tr.tasks}
               {dueReminders.length > 0 && (
@@ -1046,7 +1046,7 @@ export default function Home() {
               </select>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-2">
                 <AnimatePresence mode="popLayout">
                   {filteredTasks.map((task) => (
@@ -1122,7 +1122,7 @@ export default function Home() {
 
       case 'calendar':
         return (
-          <div className="h-full flex flex-col p-4">
+          <div className="h-full min-h-0 flex flex-col p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-violet-500" /> {tr.calendar}
@@ -1194,11 +1194,11 @@ export default function Home() {
           "What's a good morning routine for focus?",
         ];
         return (
-          <div className="h-full flex flex-col p-4">
+          <div className="h-full min-h-0 flex flex-col p-4">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-violet-500" /> {tr.aiAdvisor}
             </h2>
-            <ScrollArea className="flex-1 mb-2">
+            <ScrollArea className="flex-1 min-h-0 mb-2">
               <div className="space-y-4">
                 {chatMessages.length === 0 ? (
                   <div className="text-center py-6">
@@ -1265,7 +1265,7 @@ export default function Home() {
       case 'goals': {
         const GOAL_COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316'];
         return (
-          <div className="h-full flex flex-col p-4">
+          <div className="h-full min-h-0 flex flex-col p-4">
             <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
               <Target className="h-5 w-5 text-amber-500" /> {tr.goals}
             </h2>
@@ -1285,7 +1285,7 @@ export default function Home() {
                 />
               ))}
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-3">
                 {goals.map((goal) => (
                   <Card key={goal.id} className="border-l-4 group" style={{ borderLeftColor: goal.color }}>
@@ -1390,7 +1390,7 @@ export default function Home() {
           return d.toISOString().split('T')[0];
         });
         return (
-          <div className="h-full flex flex-col p-4">
+          <div className="h-full min-h-0 flex flex-col p-4">
             <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
               <Zap className="h-5 w-5 text-green-500" /> {tr.habits}
             </h2>
@@ -1421,7 +1421,7 @@ export default function Home() {
                 <option value="monthly">Monthly</option>
               </select>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-3">
                 {habits.map((habit) => {
                   const isCompletedToday = habit.completions.some(c => c.date === today && c.completed);
@@ -1499,7 +1499,7 @@ export default function Home() {
 
       case 'analytics': {
         return (
-          <div className="h-full flex flex-col p-4 overflow-auto">
+          <div className="h-full min-h-0 flex flex-col p-4 overflow-auto">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-blue-500" /> {tr.analytics}
             </h2>
@@ -1664,7 +1664,7 @@ export default function Home() {
         const maxTeamMembers = subscription === 'enterprise' ? -1 : 10;
         
         return (
-          <div className="h-full flex flex-col p-4 overflow-auto">
+          <div className="h-full min-h-0 flex flex-col p-4 overflow-auto">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-blue-500" /> {tr.team}
               {!hasTeamFeatures && <Badge variant="outline" className="text-xs ml-2">Business</Badge>}
@@ -1740,7 +1740,7 @@ export default function Home() {
 
       case 'settings':
         return (
-          <div className="h-full flex flex-col p-4 overflow-auto">
+          <div className="h-full min-h-0 flex flex-col p-4 overflow-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Settings className="h-5 w-5 text-gray-500" /> {tr.settings}
@@ -2023,9 +2023,9 @@ export default function Home() {
 
       {/* Main Content */}
       <main className={cn("container mx-auto p-4", isMobile && "pb-20")}>
-        <Card className={cn("overflow-hidden", isMobile ? "h-[calc(100dvh-180px)]" : "h-[calc(100dvh-140px)]")}>
+        <Card className={cn("overflow-hidden p-0 gap-0", isMobile ? "h-[calc(100dvh-180px)]" : "h-[calc(100dvh-140px)]")}>
           <AnimatePresence mode="wait">
-            <motion.div key={activeTab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }} className="h-full">
+            <motion.div key={activeTab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }} className="h-full min-h-0">
               {renderContent()}
             </motion.div>
           </AnimatePresence>
