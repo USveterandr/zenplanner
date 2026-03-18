@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS, isTrialActive, getTrialDaysRemaining, getEffectiveLimits } from '@/lib/store';
+import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS, isTrialActive, getTrialDaysRemaining, getEffectiveLimits, PAYPAL_PLAN_IDS } from '@/lib/store';
 import type { Priority, SubscriptionTier } from '@/lib/store';
 import { SUPPORTED_LOCALES } from '@/lib/i18n';
 import { useTranslation } from '@/hooks/use-translation';
@@ -52,6 +52,7 @@ export default function Home() {
     _hasHydrated: storeHasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
     subscription, setSubscription, user, signUp, signIn, signOut,
     subscriptionInfo, selectPlan, teamMembers, canAddGoal, canAddHabit,
+    createPayPalSubscription, activatePayPalSubscription, cancelSubscription,
     earlyAdopterSpotsRemaining, fetchEarlyAdopterSpots,
     setLocale, locale, timeFormat, setTimeFormat,
     lastError, clearLastError, updateProfile,
@@ -396,11 +397,60 @@ export default function Home() {
     if (error) setAuthError(error.message);
   };
 
+  const [paypalLoading, setPaypalLoading] = useState<string | null>(null);
+
   const handleSelectPlan = async (tier: SubscriptionTier) => {
-    await selectPlan(tier);
-    setActiveTab('tasks');
-    toast.success(tr.planSelected || 'Plan selected! Welcome to Zen Planner.');
+    try {
+      setPaypalLoading(tier);
+      const { approvalUrl, subscriptionId } = await createPayPalSubscription(tier);
+      if (approvalUrl) {
+        // Redirect user to PayPal to complete payment
+        window.location.href = approvalUrl;
+      } else {
+        toast.error('Failed to create checkout. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('PayPal checkout error:', error);
+      toast.error(error.message || 'Payment failed. Please try again.');
+    } finally {
+      setPaypalLoading(null);
+    }
   };
+
+  // Handle PayPal return (after approval or cancellation)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const paypalStatus = urlParams.get('paypal');
+    const paypalTier = urlParams.get('tier');
+    const paypalSubscriptionId = urlParams.get('subscription_id');
+
+    if (paypalStatus === 'success' && paypalSubscriptionId && paypalTier) {
+      // Activate the subscription in our backend
+      activatePayPalSubscription(paypalSubscriptionId, paypalTier as SubscriptionTier).then(() => {
+        toast.success(tr.planSelected || 'Plan activated! Welcome to Zen Planner.');
+        setActiveTab('tasks');
+      }).catch(() => {
+        toast.error('Subscription activation pending. It may take a moment.');
+      });
+
+      // Clean PayPal params from URL
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('paypal');
+      cleanUrl.searchParams.delete('tier');
+      cleanUrl.searchParams.delete('subscription_id');
+      cleanUrl.searchParams.delete('token');
+      cleanUrl.searchParams.delete('ba_token');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    } else if (paypalStatus === 'cancel') {
+      toast.info('Payment cancelled. You can try again anytime.');
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('paypal');
+      cleanUrl.searchParams.delete('tier');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Quick add handlers for calendar
   const handleQuickAddTask = async () => {
@@ -1000,7 +1050,7 @@ export default function Home() {
                     ))}
                   </ul>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex-col gap-2">
                   {subscription === plan.id ? (
                     <Badge className="w-full justify-center py-2 bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
                       {tr.currentPlanBadge}
@@ -1015,13 +1065,40 @@ export default function Home() {
                       )}
                       variant={plan.highlighted ? 'default' : 'outline'}
                       onClick={() => handleSelectPlan(plan.id)}
+                      disabled={paypalLoading !== null}
                     >
-                      {plan.hasTrial ? tr.startTrial : tr.selectPlan}
+                      {paypalLoading === plan.id ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</>
+                      ) : (
+                        <>{plan.hasTrial ? tr.startTrial : tr.selectPlan}</>
+                      )}
                     </Button>
+                  )}
+                  {subscription !== plan.id && (
+                    <p className="text-xs text-muted-foreground text-center">Secure checkout via PayPal</p>
                   )}
                 </CardFooter>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Cancel subscription button for paid users */}
+        {!isEarlyAdopter && subscription !== 'free' && (
+          <div className="text-center mt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={async () => {
+                if (confirm('Are you sure you want to cancel your subscription? You will lose access to premium features.')) {
+                  await cancelSubscription();
+                  toast.success('Subscription cancelled.');
+                }
+              }}
+            >
+              Cancel Subscription
+            </Button>
           </div>
         )}
       </div>

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "paypal": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@paypal/mcp",
+        "--tools=all"
+      ],
+      "environment": {
+        "PAYPAL_ACCESS_TOKEN": "{env:PAYPAL_ACCESS_TOKEN}",
+        "PAYPAL_ENVIRONMENT": "SANDBOX"
+      },
+      "enabled": true
+    }
+  }
+}

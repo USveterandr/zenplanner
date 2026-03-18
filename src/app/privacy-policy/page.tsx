@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
           Privacy Policy
         </h1>
         <p className="text-sm text-gray-500 mb-8">
-          Last updated: March 2, 2026
+          Last updated: March 18, 2026
         </p>
 
         <div className="prose prose-gray max-w-none space-y-8">
@@ -36,38 +36,37 @@ export default function PrivacyPolicyPage() {
             </h2>
 
             <h3 className="text-lg font-medium text-gray-800 mt-4 mb-2">
-              2.1 Data Stored Locally on Your Device
+              2.1 Account Information
             </h3>
             <p className="text-gray-700 leading-relaxed mb-3">
-              The majority of your data is stored locally on your device using
-              your browser&apos;s local storage. This data never leaves your
-              device except as described in Section 2.2. Locally stored data
-              includes:
+              When you create an account or sign in (including via Google OAuth),
+              we collect:
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
-              <li>
-                Account information (name, email address, password)
-              </li>
-              <li>
-                Subscription plan selection and trial status
-              </li>
-              <li>
-                Tasks (titles, descriptions, priorities, due dates, categories,
-                completion status)
-              </li>
-              <li>Goals (titles, descriptions, milestones, progress)</li>
-              <li>
-                Habits (titles, descriptions, frequency, completion history,
-                streaks)
-              </li>
-              <li>Categories (names, colors, icons)</li>
-              <li>Reminders and notification preferences</li>
-              <li>AI Advisor chat history</li>
-              <li>UI preferences (e.g., sidebar state)</li>
+              <li>Name and email address</li>
+              <li>Profile information (avatar, profession, hobbies) you choose to provide</li>
+              <li>Authentication tokens for session management</li>
             </ul>
 
             <h3 className="text-lg font-medium text-gray-800 mt-4 mb-2">
-              2.2 Data Shared with Third-Party AI Services
+              2.2 Application Data
+            </h3>
+            <p className="text-gray-700 leading-relaxed mb-3">
+              To provide core functionality, we store the following data on our
+              secure servers:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-1">
+              <li>Tasks (titles, descriptions, priorities, due dates, categories, completion status)</li>
+              <li>Goals (titles, descriptions, milestones, progress)</li>
+              <li>Habits (titles, descriptions, frequency, completion history, streaks)</li>
+              <li>Categories (names, colors, icons)</li>
+              <li>Reminders and notification preferences</li>
+              <li>AI Advisor chat history</li>
+              <li>Subscription plan and billing status</li>
+            </ul>
+
+            <h3 className="text-lg font-medium text-gray-800 mt-4 mb-2">
+              2.3 Data Shared with Third-Party AI Services
             </h3>
             <p className="text-gray-700 leading-relaxed mb-3">
               When you use the AI Advisor feature, the following data is sent to
@@ -76,34 +75,37 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
               <li>Your chat messages to the AI Advisor</li>
-              <li>
-                Summaries of your tasks (titles, completion status, priorities)
-              </li>
+              <li>Summaries of your tasks (titles, completion status, priorities)</li>
               <li>Summaries of your goals (titles, progress percentages)</li>
               <li>Summaries of your habits (titles, streak counts)</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-3">
-              This data is used solely to provide AI-powered advice and is not
-              stored by us on any server. The AI Advisor feature is optional and
-              you can use the App without it.
+              The AI Advisor feature is optional and you can use the App without it.
             </p>
 
             <h3 className="text-lg font-medium text-gray-800 mt-4 mb-2">
-              2.3 Automatically Collected Information
+              2.4 Payment Information
+            </h3>
+            <p className="text-gray-700 leading-relaxed mb-3">
+              When you subscribe to a paid plan, payment processing is handled
+              entirely by PayPal. We do not store your credit card numbers,
+              bank account details, or PayPal login credentials. We only receive:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-1">
+              <li>PayPal subscription ID (to track your billing status)</li>
+              <li>Subscription status and renewal dates</li>
+            </ul>
+
+            <h3 className="text-lg font-medium text-gray-800 mt-4 mb-2">
+              2.5 Automatically Collected Information
             </h3>
             <p className="text-gray-700 leading-relaxed mb-3">
               We do not use any analytics, tracking scripts, or advertising
-              SDKs. However, standard web hosting infrastructure may collect:
+              SDKs. Standard web hosting may collect:
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
-              <li>
-                IP address, browser type, and device information (standard HTTP
-                request metadata collected by our hosting provider, Vercel)
-              </li>
-              <li>
-                Font loading requests to Google Fonts CDN (standard HTTP
-                metadata)
-              </li>
+              <li>IP address, browser type, and device information (standard HTTP request metadata)</li>
+              <li>Font loading requests to Google Fonts CDN</li>
             </ul>
           </section>
 
@@ -111,17 +113,12 @@ export default function PrivacyPolicyPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-3">
               3. Information We Do Not Collect
             </h2>
-            <p className="text-gray-700 leading-relaxed mb-3">
-              We want to be clear about what we do not collect:
-            </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
-              <li>
-                We do not transmit your account information to external servers
-                &mdash; it is stored locally on your device
-              </li>
               <li>We do not use tracking cookies or advertising identifiers</li>
               <li>We do not use analytics or crash reporting services</li>
               <li>We do not sell or share your data with advertisers</li>
+              <li>We do not store your payment card or bank details</li>
+              <li>We do not access your device contacts, photos, or location</li>
             </ul>
           </section>
 
@@ -133,20 +130,12 @@ export default function PrivacyPolicyPage() {
               Your information is used exclusively to:
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
-              <li>
-                Provide core App functionality (task management, goal tracking,
-                habit building, analytics dashboard)
-              </li>
-              <li>
-                Generate AI-powered productivity advice when you use the AI
-                Advisor feature
-              </li>
-              <li>
-                Enable offline access through service worker caching
-              </li>
-              <li>
-                Remember your UI preferences (e.g., sidebar state)
-              </li>
+              <li>Provide core App functionality (task management, goal tracking, habit building, analytics)</li>
+              <li>Authenticate your identity and maintain your session</li>
+              <li>Process subscription payments through PayPal</li>
+              <li>Generate AI-powered productivity advice (when you use the AI Advisor)</li>
+              <li>Sync your data across devices when signed in</li>
+              <li>Enable offline access through service worker caching</li>
             </ul>
           </section>
 
@@ -155,27 +144,18 @@ export default function PrivacyPolicyPage() {
               5. Data Storage and Security
             </h2>
             <p className="text-gray-700 leading-relaxed mb-3">
-              Your productivity data (tasks, goals, habits, chat history) is
-              stored entirely in your browser&apos;s local storage on your
-              device. We do not maintain a server-side database for user
-              application data.
-            </p>
-            <p className="text-gray-700 leading-relaxed mb-3">
-              Please be aware that:
+              Your application data is stored securely using:
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
-              <li>
-                Clearing your browser data or uninstalling the App will
-                permanently delete your locally stored data
-              </li>
-              <li>
-                Your data is not synced across devices
-              </li>
-              <li>
-                We recommend periodically backing up important information
-                stored in the App
-              </li>
+              <li><strong>Cloudflare D1:</strong> A globally distributed database for your tasks, goals, habits, and account data</li>
+              <li><strong>Supabase:</strong> Authentication service for secure sign-in and session management</li>
+              <li><strong>Supabase Storage:</strong> Secure storage for user-uploaded files (e.g., profile avatars)</li>
             </ul>
+            <p className="text-gray-700 leading-relaxed mt-3">
+              All data is transmitted over HTTPS encryption. Your password is
+              managed by Supabase&apos;s authentication system and is never
+              stored in plaintext.
+            </p>
           </section>
 
           <section>
@@ -187,34 +167,43 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
               <li>
-                <strong>AI Service Provider:</strong> Processes AI Advisor chat
-                requests. Data sent is limited to chat messages and productivity
-                summaries as described in Section 2.2.
+                <strong>Cloudflare Workers:</strong> Hosts the App and database.
+                Subject to{" "}
+                <a href="https://www.cloudflare.com/privacypolicy/" className="text-purple-600 hover:text-purple-800 underline" target="_blank" rel="noopener noreferrer">
+                  Cloudflare&apos;s Privacy Policy
+                </a>.
               </li>
               <li>
-                <strong>Vercel:</strong> Hosts the App. Subject to{" "}
-                <a
-                  href="https://vercel.com/legal/privacy-policy"
-                  className="text-purple-600 hover:text-purple-800 underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Vercel&apos;s Privacy Policy
-                </a>
-                .
+                <strong>Supabase:</strong> Provides authentication and file storage.
+                Subject to{" "}
+                <a href="https://supabase.com/privacy" className="text-purple-600 hover:text-purple-800 underline" target="_blank" rel="noopener noreferrer">
+                  Supabase&apos;s Privacy Policy
+                </a>.
               </li>
               <li>
-                <strong>Google Fonts:</strong> Provides typefaces used in the
-                App. Subject to{" "}
-                <a
-                  href="https://policies.google.com/privacy"
-                  className="text-purple-600 hover:text-purple-800 underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <strong>PayPal:</strong> Processes subscription payments.
+                Subject to{" "}
+                <a href="https://www.paypal.com/us/legalhub/privacy-full" className="text-purple-600 hover:text-purple-800 underline" target="_blank" rel="noopener noreferrer">
+                  PayPal&apos;s Privacy Policy
+                </a>.
+              </li>
+              <li>
+                <strong>Cloudflare AI:</strong> Powers the AI Advisor feature.
+                Data sent is limited to chat messages and productivity summaries.
+              </li>
+              <li>
+                <strong>Google Fonts:</strong> Provides typefaces.
+                Subject to{" "}
+                <a href="https://policies.google.com/privacy" className="text-purple-600 hover:text-purple-800 underline" target="_blank" rel="noopener noreferrer">
                   Google&apos;s Privacy Policy
-                </a>
-                .
+                </a>.
+              </li>
+              <li>
+                <strong>Google OAuth:</strong> Optional sign-in method.
+                Subject to{" "}
+                <a href="https://policies.google.com/privacy" className="text-purple-600 hover:text-purple-800 underline" target="_blank" rel="noopener noreferrer">
+                  Google&apos;s Privacy Policy
+                </a>.
               </li>
             </ul>
           </section>
@@ -226,9 +215,8 @@ export default function PrivacyPolicyPage() {
             <p className="text-gray-700 leading-relaxed">
               Zen Planner is not directed at children under the age of 13. We do
               not knowingly collect personal information from children under 13.
-              Since the App does not require account creation and stores data
-              locally, no personal identification information is collected from
-              any user.
+              If you believe a child has provided us with personal information,
+              please contact us so we can delete it.
             </p>
           </section>
 
@@ -238,20 +226,26 @@ export default function PrivacyPolicyPage() {
             </h2>
             <ul className="list-disc pl-6 text-gray-700 space-y-1">
               <li>
-                <strong>Delete your account and data:</strong> You can sign out
-                and delete all your data at any time by clearing your
-                browser&apos;s local storage or uninstalling the App. Since all
-                data is stored locally, signing out removes access to your
-                account data.
+                <strong>Delete your account and data:</strong> You can request
+                account deletion from the App settings or by visiting{" "}
+                <a href="/delete-account" className="text-purple-600 hover:text-purple-800 underline">
+                  the account deletion page
+                </a>.
+                All your data will be permanently removed from our servers.
               </li>
               <li>
                 <strong>Opt out of AI features:</strong> You can use the App
-                without the AI Advisor. No data is sent to external AI services
-                unless you actively use this feature.
+                without the AI Advisor. No data is sent to AI services unless
+                you actively use this feature.
               </li>
               <li>
                 <strong>Manage your subscription:</strong> You can change or
-                cancel your subscription plan at any time from within the App.
+                cancel your subscription plan at any time from within the App
+                or through your PayPal account.
+              </li>
+              <li>
+                <strong>Export your data:</strong> You can access all your data
+                through the App interface at any time.
               </li>
               <li>
                 <strong>Disable notifications:</strong> You can manage
@@ -262,13 +256,13 @@ export default function PrivacyPolicyPage() {
 
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">
-              9. Cookies
+              9. Data Retention
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              The App uses one functional cookie (<code>sidebar_state</code>) to
-              remember your sidebar UI preference. This is not a tracking cookie
-              and contains only a boolean value. We do not use any analytics,
-              advertising, or third-party tracking cookies.
+              We retain your data for as long as your account is active. If you
+              delete your account, all associated data is permanently removed
+              within 30 days. Subscription billing records may be retained as
+              required by law or by PayPal&apos;s policies.
             </p>
           </section>
 

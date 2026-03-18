@@ -197,7 +197,7 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> =
   },
 };
 
-// Early adopters (first 100 users) get unlimited everything on the free tier
+// Early adopters (first 30 users) get unlimited everything on the free tier
 const EARLY_ADOPTER_LIMITS: SubscriptionLimits = {
   maxGoals: -1,
   maxHabits: -1,
@@ -263,6 +263,14 @@ export interface SubscriptionInfo {
   isEarlyAdopter: boolean;
 }
 
+// PayPal Sandbox plan IDs — these map to billing plans created in PayPal
+export const PAYPAL_PLAN_IDS: Record<string, string> = {
+  starter: 'P-6W164529YT481242XNG5NOVQ',
+  pro: 'P-6SL25534GN999705MNG5NOXQ',
+  business: 'P-6BL92681JA785883RNG5NOZI',
+  enterprise: 'P-55L55956R6536740FNG5NO2Y',
+};
+
 export const SUBSCRIPTION_PLANS = [
   {
     id: 'starter' as const,
@@ -273,6 +281,7 @@ export const SUBSCRIPTION_PLANS = [
     trialDays: 7,
     features: ['Unlimited tasks', 'Up to 5 goals', 'Up to 10 habits', '50 AI messages/month', 'Basic reminders', 'Calendar view'],
     highlighted: false,
+    paypalPlanId: 'P-6W164529YT481242XNG5NOVQ',
   },
   {
     id: 'pro' as const,
@@ -283,6 +292,7 @@ export const SUBSCRIPTION_PLANS = [
     trialDays: 7,
     features: ['Everything in Starter', 'Unlimited goals', 'Unlimited habits', '200 AI messages/month', 'Smart reminders', 'Priority support', 'Advanced analytics'],
     highlighted: true,
+    paypalPlanId: 'P-6SL25534GN999705MNG5NOXQ',
   },
   {
     id: 'business' as const,
@@ -293,6 +303,7 @@ export const SUBSCRIPTION_PLANS = [
     trialDays: 0,
     features: ['Everything in Pro', '500 AI messages/month', 'Team collaboration', 'Shared calendars', 'Admin dashboard', 'API access', 'Custom integrations'],
     highlighted: false,
+    paypalPlanId: 'P-6BL92681JA785883RNG5NOZI',
   },
   {
     id: 'enterprise' as const,
@@ -303,6 +314,7 @@ export const SUBSCRIPTION_PLANS = [
     trialDays: 0,
     features: ['Everything in Business', 'Unlimited AI messages', 'Unlimited team members', 'White-label options', 'SSO authentication', 'Dedicated support', 'SLA guarantee', 'Custom development'],
     highlighted: false,
+    paypalPlanId: 'P-55L55956R6536740FNG5NO2Y',
   },
 ];
 
@@ -394,6 +406,9 @@ interface AppState {
   
   setSubscription: (tier: SubscriptionTier) => void;
   selectPlan: (tier: SubscriptionTier) => Promise<void>;
+  createPayPalSubscription: (tier: SubscriptionTier) => Promise<{ approvalUrl: string | null; subscriptionId: string | null }>;
+  activatePayPalSubscription: (subscriptionId: string, tier: SubscriptionTier) => Promise<void>;
+  cancelSubscription: () => Promise<void>;
   fetchEarlyAdopterSpots: () => Promise<void>;
   
   setActiveTab: (tab: string) => void;
@@ -1052,6 +1067,85 @@ export const useAppStore = create<AppState>()(
           } catch (error) {
             console.error('Error updating subscription:', error);
           }
+        }
+      },
+
+      createPayPalSubscription: async (tier) => {
+        try {
+          const token = get().accessToken;
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          const res = await fetch('/api/paypal', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action: 'create_subscription', tier }),
+          });
+          const result = await res.json() as { success: boolean; data?: { approvalUrl: string | null; subscriptionId: string }; error?: string };
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to create subscription');
+          }
+          return {
+            approvalUrl: result.data?.approvalUrl || null,
+            subscriptionId: result.data?.subscriptionId || null,
+          };
+        } catch (error: any) {
+          console.error('Error creating PayPal subscription:', error);
+          throw error;
+        }
+      },
+
+      activatePayPalSubscription: async (subscriptionId, tier) => {
+        try {
+          const token = get().accessToken;
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          const res = await fetch('/api/paypal', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action: 'activate_subscription', subscriptionId, tier }),
+          });
+          const result = await res.json() as { success: boolean; data?: { tier: string; status: string }; error?: string };
+          if (result.success && result.data) {
+            const activeTier = result.data.tier as SubscriptionTier;
+            set({
+              subscription: activeTier,
+              subscriptionInfo: {
+                ...get().subscriptionInfo,
+                tier: activeTier,
+                startDate: new Date().toISOString(),
+              },
+            });
+          }
+        } catch (error: any) {
+          console.error('Error activating PayPal subscription:', error);
+        }
+      },
+
+      cancelSubscription: async () => {
+        try {
+          const token = get().accessToken;
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          const res = await fetch('/api/paypal', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ action: 'cancel_subscription' }),
+          });
+          const result = await res.json() as { success: boolean; error?: string };
+          if (result.success) {
+            set({
+              subscription: 'free',
+              subscriptionInfo: {
+                ...get().subscriptionInfo,
+                tier: 'free',
+              },
+            });
+          }
+        } catch (error: any) {
+          console.error('Error cancelling subscription:', error);
         }
       },
 

@@ -1,128 +1,158 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 
-interface LemonSqueezyEvent {
-  event_name: string;
-  data: {
-    attributes: {
-      customer_id?: string;
-      subscription_id?: string;
-      status?: string;
-      renews_at?: string;
-      ends_at?: string;
-      order_id?: number;
-      order_item_id?: number;
-      product_id?: number;
-      variant_id?: number;
-      product_name?: string;
-      variant_name?: string;
-      user_email?: string;
-      custom_data?: {
-        userId?: string;
-      };
-    };
-    relationships?: {
-      order?: {
-        data?: {
-          id?: string;
-        };
-      };
-    };
-  };
-}
-
-const LEMON_SQUEEZY_PLANS: Record<number, string> = {
-  1: "starter",
-  2: "pro",
-  3: "business",
-  4: "enterprise",
+// PayPal plan ID → app tier mapping
+const PAYPAL_PLAN_IDS: Record<string, string> = {
+  "P-6W164529YT481242XNG5NOVQ": "starter",
+  "P-6SL25534GN999705MNG5NOXQ": "pro",
+  "P-6BL92681JA785883RNG5NOZI": "business",
+  "P-55L55956R6536740FNG5NO2Y": "enterprise",
 };
 
+/**
+ * PayPal Webhook handler
+ *
+ * PayPal sends events here for subscription lifecycle changes.
+ * In production, you should verify the webhook signature using
+ * PayPal's /v1/notifications/verify-webhook-signature endpoint.
+ */
 export async function POST(request: Request) {
   try {
     const db = getDb();
-
     if (!db) {
       return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
     }
-    
-    const bodyText = await request.text();
-    
-    // Note: In production, verify X-Signature header using HMAC-SHA256
-    // For now, we trust requests from Lemon Squeezy
-    
-    const body = JSON.parse(bodyText) as LemonSqueezyEvent;
-    const { event_name, data } = body;
-    
-    const attributes = data.attributes;
-    const userId = attributes.custom_data?.userId;
-    
-    console.log("Lemon Squeezy webhook:", event_name);
-    
-    if (!userId) {
-      console.error("No userId in webhook");
-      return NextResponse.json({ success: false, error: "No userId" }, { status: 400 });
+
+    const body = (await request.json()) as { event_type: string; resource: Record<string, any> };
+    const eventType = body.event_type;
+    const resource = body.resource;
+
+    console.log("PayPal webhook event:", eventType);
+
+    if (!resource) {
+      return NextResponse.json({ success: false, error: "No resource in event" }, { status: 400 });
     }
 
-    async function updateSub(fields: Record<string, string | undefined>) {
+    // custom_id is our userId, set when creating the subscription
+    const userId = resource.custom_id as string | undefined;
+    const subscriptionId = resource.id as string | undefined;
+    const planId = resource.plan_id as string | undefined;
+
+    async function updateSub(fields: Record<string, string | null | undefined>) {
       const setClauses: string[] = [];
-      const values: string[] = [];
+      const values: (string | null)[] = [];
       for (const [col, val] of Object.entries(fields)) {
         if (val !== undefined) {
           setClauses.push(`${col} = ?`);
           values.push(val);
         }
       }
-      values.push(userId!);
-      await db!.prepare(`UPDATE Subscription SET ${setClauses.join(", ")} WHERE userId = ?`).bind(...values).run();
+      if (setClauses.length === 0) return;
+
+      // Try by userId first, fall back to subscriptionId
+      if (userId) {
+        values.push(userId);
+        await db!.prepare(`UPDATE Subscription SET ${setClauses.join(", ")} WHERE userId = ?`).bind(...values).run();
+      } else if (subscriptionId) {
+        values.push(subscriptionId);
+        await db!.prepare(`UPDATE Subscription SET ${setClauses.join(", ")} WHERE subscriptionId = ?`).bind(...values).run();
+      }
     }
-    
-    switch (event_name) {
-      case "subscription_created":
-      case "subscription_updated": {
-        const variantId = attributes.variant_id;
-        const tier = variantId ? (LEMON_SQUEEZY_PLANS[variantId] || "free") : "free";
-        
+
+    switch (eventType) {
+      // ── Subscription activated ──────────────────────────────────────
+      case "BILLING.SUBSCRIPTION.ACTIVATED": {
+        const tier = planId ? (PAYPAL_PLAN_IDS[planId] || "pro") : "pro";
+        const renewsAt = resource.billing_info?.next_billing_time || null;
+
         await updateSub({
           tier,
-          customerId: attributes.customer_id ? String(attributes.customer_id) : undefined,
-          subscriptionId: attributes.subscription_id ? String(attributes.subscription_id) : undefined,
-          status: attributes.status,
-          renewsAt: attributes.renews_at,
-          endsAt: attributes.ends_at,
+          subscriptionId: subscriptionId || null,
+          status: "active",
+          renewsAt,
+          startDate: new Date().toISOString(),
         });
-        
-        console.log(`Subscription updated for user ${userId}: ${tier}`);
+        console.log(`Subscription activated for user ${userId}: ${tier}`);
         break;
       }
-      
-      case "subscription_cancelled":
-      case "subscription_expired": {
-        await updateSub({ tier: "free", status: "cancelled", endsAt: attributes.ends_at });
+
+      // ── Subscription updated (plan change, etc) ─────────────────────
+      case "BILLING.SUBSCRIPTION.UPDATED": {
+        const tier = planId ? (PAYPAL_PLAN_IDS[planId] || "pro") : "pro";
+        const renewsAt = resource.billing_info?.next_billing_time || null;
+        const status = resource.status?.toLowerCase() || "active";
+
+        await updateSub({
+          tier,
+          status,
+          renewsAt,
+        });
+        console.log(`Subscription updated for user ${userId}: ${tier} (${status})`);
+        break;
+      }
+
+      // ── Subscription cancelled ──────────────────────────────────────
+      case "BILLING.SUBSCRIPTION.CANCELLED": {
+        await updateSub({
+          status: "cancelled",
+          // Keep the tier active until end of billing period
+          // PayPal sends the final date in status_update_time
+        });
         console.log(`Subscription cancelled for user ${userId}`);
         break;
       }
-      
-      case "subscription_resumed": {
-        const variantId = attributes.variant_id;
-        const tier = variantId ? (LEMON_SQUEEZY_PLANS[variantId] || "pro") : "pro";
-        await updateSub({ tier, status: "active", renewsAt: attributes.renews_at });
-        console.log(`Subscription resumed for user ${userId}`);
+
+      // ── Subscription suspended (payment failure) ────────────────────
+      case "BILLING.SUBSCRIPTION.SUSPENDED": {
+        await updateSub({
+          status: "suspended",
+        });
+        console.log(`Subscription suspended for user ${userId}`);
         break;
       }
-      
-      case "subscription_payment_failed": {
-        console.log(`Payment failed for user ${userId}`);
+
+      // ── Subscription expired ────────────────────────────────────────
+      case "BILLING.SUBSCRIPTION.EXPIRED": {
+        await updateSub({
+          tier: "free",
+          status: "expired",
+          subscriptionId: null,
+          renewsAt: null,
+        });
+        console.log(`Subscription expired for user ${userId}`);
         break;
       }
-      
+
+      // ── Payment completed (recurring) ───────────────────────────────
+      case "PAYMENT.SALE.COMPLETED": {
+        // A recurring payment succeeded — subscription stays active
+        const billingAgreementId = resource.billing_agreement_id;
+        if (billingAgreementId) {
+          // Update the subscription via billingAgreementId (which is the subscriptionId)
+          await db.prepare(
+            "UPDATE Subscription SET status = 'active' WHERE subscriptionId = ?"
+          ).bind(billingAgreementId).run();
+        }
+        console.log(`Payment completed for subscription ${billingAgreementId}`);
+        break;
+      }
+
+      // ── Payment failed ──────────────────────────────────────────────
+      case "PAYMENT.SALE.DENIED":
+      case "PAYMENT.SALE.REFUNDED": {
+        console.log(`Payment issue for user ${userId}: ${eventType}`);
+        break;
+      }
+
       default:
-        console.log("Unhandled event:", event_name);
+        console.log("Unhandled PayPal event:", eventType);
     }
-    
+
+    // PayPal expects a 200 response to acknowledge the webhook
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Webhook error:", error);
-    return NextResponse.json({ success: false, error: "Webhook processing failed" }, { status: 500 });
+  } catch (error: any) {
+    console.error("PayPal webhook error:", error?.message || error);
+    // Return 200 even on error to prevent PayPal from retrying endlessly
+    return NextResponse.json({ success: true });
   }
 }
