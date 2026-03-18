@@ -68,3 +68,6 @@ android-twa/zenplanner/
 # Google OAuth credentials
 *.apps.googleusercontent.com.json
 client_secret_*.json
+
+# Android TWA secrets
+android-twa/gradle.properties

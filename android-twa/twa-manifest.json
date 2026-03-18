@@ -1,6 +1,6 @@
 {
   "packageId": "com.zenplanner.app",
-  "host": "zenplanner-app.isaactrinidadllc.workers.dev",
+  "host": "zenplanner.isaactrinidadllc.workers.dev",
   "name": "Zen Planner",
   "launcherName": "Zen Planner",
   "display": "standalone",
@@ -13,8 +13,8 @@
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://zenplanner-app.isaactrinidadllc.workers.dev/icon-512.png",
-  "maskableIconUrl": "https://zenplanner-app.isaactrinidadllc.workers.dev/icon-maskable-512.png",
+  "iconUrl": "https://zenplanner.isaactrinidadllc.workers.dev/icon-512.png",
+  "maskableIconUrl": "https://zenplanner.isaactrinidadllc.workers.dev/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
@@ -26,11 +26,11 @@
       "name": "Add Task",
       "shortName": "Task",
       "url": "/?tab=tasks",
-      "chosenIconUrl": "https://zenplanner-app.isaactrinidadllc.workers.dev/icon-96.png"
+      "chosenIconUrl": "https://zenplanner.isaactrinidadllc.workers.dev/icon-96.png"
     }
   ],
   "generatorApp": "nicolo-nicolo/nicolo-cli",
-  "webManifestUrl": "https://zenplanner-app.isaactrinidadllc.workers.dev/manifest.json",
+  "webManifestUrl": "https://zenplanner.isaactrinidadllc.workers.dev/manifest.json",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -39,10 +39,19 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://zenplanner-app.isaactrinidadllc.workers.dev/",
+  "fullScopeUrl": "https://zenplanner.isaactrinidadllc.workers.dev/",
   "minSdkVersion": 19,
   "orientation": "portrait",
-  "fingerprints": [],
+  "fingerprints": [
+    {
+      "type": "sha256_cert",
+      "value": "07:FB:46:5C:84:E9:09:96:84:6B:F7:C4:8F:69:1E:61:D6:8F:0E:24:89:29:B6:07:51:1E:BF:17:3A:1C:D4:3F"
+    },
+    {
+      "type": "sha256_cert",
+      "value": "6A:BC:A5:34:2B:C4:DD:5B:75:99:96:08:B0:6F:3C:1D:F6:A5:67:29:0E:D3:8F:48:53:4D:F3:0F:06:FB:B8:3B"
+    }
+  ],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "displayOverride": []

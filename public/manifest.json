@@ -67,7 +67,45 @@
   ],
   "categories": ["productivity", "utilities"],
   "lang": "en-US",
+  "dir": "ltr",
   "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "/zen_planner_playstore_1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Zen Planner - AI-Powered Task Management"
+    },
+    {
+      "src": "/zen_planner_playstore_2.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Smart Goal Tracking & Habits"
+    },
+    {
+      "src": "/zen_planner_playstore_3.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Calendar & Schedule Overview"
+    },
+    {
+      "src": "/zen_planner_playstore_4.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Analytics & Productivity Insights"
+    },
+    {
+      "src": "/zen_planner_playstore_5.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Team Collaboration & Settings"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Add Task",
