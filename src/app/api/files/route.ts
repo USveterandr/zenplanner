@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseServiceClient } from "@/lib/supabase";
 
 /**
  * Supabase file storage API
@@ -22,7 +22,7 @@ function scopedKey(userId: string, key: string) {
 
 export async function PUT(request: Request) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServiceClient();
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -64,7 +64,7 @@ export async function PUT(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServiceClient();
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServiceClient();
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
