@@ -60,6 +60,7 @@ server.log
 
 # Cloudflare build output
 .open-next/
+.wrangler/
 _public/
 
 # Embedded repo copy (should not be tracked)
