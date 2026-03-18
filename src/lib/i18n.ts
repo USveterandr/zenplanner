@@ -177,6 +177,22 @@ export interface Translations {
   smartReminders: string;
   calendarSync: string;
 
+  // Pricing / Early Adopter
+  choosePlan: string;
+  choosePlanToStart: string;
+  earlyAdopter: string;
+  earlyAdopterDesc: string;
+  earlyAdopterWelcome: string;
+  earlyAdopterSpotsLeft: string;
+  earlyAdopterSpotsFilled: string;
+  lifetimeFree: string;
+  popular: string;
+  perMonth: string;
+  trialDays: string;
+  currentPlanBadge: string;
+  startTrial: string;
+  selectPlan: string;
+
   // Header
   pendingCount: string;
   trial: string;
@@ -336,6 +352,21 @@ const en: Translations = {
   smartReminders: 'Smart reminders',
   calendarSync: 'Calendar sync',
 
+  choosePlan: 'Choose your plan',
+  choosePlanToStart: 'Choose a plan to unlock all features and boost your productivity.',
+  earlyAdopter: 'Early Adopter',
+  earlyAdopterDesc: 'You\'re one of our first 100 users! All features are unlocked for you — forever.',
+  earlyAdopterWelcome: 'You\'re an early adopter! All features are unlocked for you for life. Thank you for being one of our first users.',
+  earlyAdopterSpotsLeft: '{count} early adopter spots remaining',
+  earlyAdopterSpotsFilled: 'All early adopter spots have been filled',
+  lifetimeFree: 'Lifetime Free',
+  popular: 'Popular',
+  perMonth: 'mo',
+  trialDays: '{days}-day free trial',
+  currentPlanBadge: 'Current Plan',
+  startTrial: 'Start Free Trial',
+  selectPlan: 'Select Plan',
+
   pendingCount: 'pending',
   trial: 'Trial',
 
@@ -492,6 +523,21 @@ const es: Translations = {
   teamCollaboration: 'Colaboración en equipo',
   smartReminders: 'Recordatorios inteligentes',
   calendarSync: 'Sincronización de calendario',
+
+  choosePlan: 'Elige tu plan',
+  choosePlanToStart: 'Elige un plan para desbloquear todas las funciones y aumentar tu productividad.',
+  earlyAdopter: 'Usuario Pionero',
+  earlyAdopterDesc: '¡Eres uno de nuestros primeros 100 usuarios! Todas las funciones están desbloqueadas para ti — para siempre.',
+  earlyAdopterWelcome: '¡Eres un usuario pionero! Todas las funciones están desbloqueadas de por vida. Gracias por ser uno de nuestros primeros usuarios.',
+  earlyAdopterSpotsLeft: '{count} lugares de usuario pionero restantes',
+  earlyAdopterSpotsFilled: 'Todos los lugares de usuario pionero se han llenado',
+  lifetimeFree: 'Gratis de por vida',
+  popular: 'Popular',
+  perMonth: 'mes',
+  trialDays: '{days} días de prueba gratis',
+  currentPlanBadge: 'Plan Actual',
+  startTrial: 'Iniciar Prueba Gratis',
+  selectPlan: 'Seleccionar Plan',
 
   pendingCount: 'pendientes',
   trial: 'Prueba',
@@ -650,6 +696,21 @@ const zh: Translations = {
   smartReminders: '智能提醒',
   calendarSync: '日历同步',
 
+  choosePlan: '选择您的计划',
+  choosePlanToStart: '选择一个计划来解锁所有功能，提升您的生产力。',
+  earlyAdopter: '早期用户',
+  earlyAdopterDesc: '您是我们前100位用户之一！所有功能已永久为您解锁。',
+  earlyAdopterWelcome: '您是早期用户！所有功能已终身为您解锁。感谢您成为我们的首批用户。',
+  earlyAdopterSpotsLeft: '剩余 {count} 个早期用户名额',
+  earlyAdopterSpotsFilled: '所有早期用户名额已满',
+  lifetimeFree: '终身免费',
+  popular: '热门',
+  perMonth: '月',
+  trialDays: '{days}天免费试用',
+  currentPlanBadge: '当前计划',
+  startTrial: '开始免费试用',
+  selectPlan: '选择计划',
+
   pendingCount: '待处理',
   trial: '试用',
 
@@ -807,6 +868,21 @@ const hi: Translations = {
   smartReminders: 'स्मार्ट रिमाइंडर',
   calendarSync: 'कैलेंडर सिंक',
 
+  choosePlan: 'अपना प्लान चुनें',
+  choosePlanToStart: 'सभी सुविधाओं को अनलॉक करने और अपनी उत्पादकता बढ़ाने के लिए एक प्लान चुनें।',
+  earlyAdopter: 'अर्ली एडॉप्टर',
+  earlyAdopterDesc: 'आप हमारे पहले 100 उपयोगकर्ताओं में से एक हैं! सभी सुविधाएँ आपके लिए हमेशा के लिए अनलॉक हैं।',
+  earlyAdopterWelcome: 'आप एक अर्ली एडॉप्टर हैं! सभी सुविधाएँ आजीवन आपके लिए अनलॉक हैं। हमारे पहले उपयोगकर्ताओं में से होने के लिए धन्यवाद।',
+  earlyAdopterSpotsLeft: '{count} अर्ली एडॉप्टर स्थान शेष',
+  earlyAdopterSpotsFilled: 'सभी अर्ली एडॉप्टर स्थान भर गए हैं',
+  lifetimeFree: 'आजीवन मुफ्त',
+  popular: 'लोकप्रिय',
+  perMonth: 'माह',
+  trialDays: '{days}-दिन मुफ्त परीक्षण',
+  currentPlanBadge: 'वर्तमान प्लान',
+  startTrial: 'मुफ्त परीक्षण शुरू करें',
+  selectPlan: 'प्लान चुनें',
+
   pendingCount: 'लंबित',
   trial: 'परीक्षण',
 
@@ -963,6 +1039,21 @@ const fr: Translations = {
   teamCollaboration: 'Collaboration en équipe',
   smartReminders: 'Rappels intelligents',
   calendarSync: 'Synchronisation du calendrier',
+
+  choosePlan: 'Choisissez votre plan',
+  choosePlanToStart: 'Choisissez un plan pour débloquer toutes les fonctionnalités et booster votre productivité.',
+  earlyAdopter: 'Adopteur Précoce',
+  earlyAdopterDesc: 'Vous êtes l\'un de nos 100 premiers utilisateurs ! Toutes les fonctionnalités sont débloquées pour vous — à vie.',
+  earlyAdopterWelcome: 'Vous êtes un adopteur précoce ! Toutes les fonctionnalités sont débloquées à vie. Merci d\'être l\'un de nos premiers utilisateurs.',
+  earlyAdopterSpotsLeft: '{count} places d\'adopteur précoce restantes',
+  earlyAdopterSpotsFilled: 'Toutes les places d\'adopteur précoce sont prises',
+  lifetimeFree: 'Gratuit à vie',
+  popular: 'Populaire',
+  perMonth: 'mois',
+  trialDays: '{days} jours d\'essai gratuit',
+  currentPlanBadge: 'Plan Actuel',
+  startTrial: 'Commencer l\'Essai Gratuit',
+  selectPlan: 'Sélectionner le Plan',
 
   pendingCount: 'en attente',
   trial: 'Essai',

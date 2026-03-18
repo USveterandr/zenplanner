@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS User (
 CREATE TABLE IF NOT EXISTS Subscription (
   id             TEXT PRIMARY KEY,
   tier           TEXT NOT NULL DEFAULT 'free',
+  isEarlyAdopter INTEGER NOT NULL DEFAULT 0,
   startDate      TEXT,
   trialEndDate   TEXT,
   customerId     TEXT,
@@ -27,6 +28,11 @@ CREATE TABLE IF NOT EXISTS Subscription (
   userId         TEXT UNIQUE NOT NULL,
   FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
 );
+
+-- Migration: add isEarlyAdopter column if upgrading from older schema
+-- SQLite requires ALTER TABLE for existing databases (D1 supports this)
+-- This is safe to run even if the column already exists (will just fail silently)
+-- ALTER TABLE Subscription ADD COLUMN isEarlyAdopter INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS Task (
   id                    TEXT PRIMARY KEY,

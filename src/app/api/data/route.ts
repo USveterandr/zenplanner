@@ -4,6 +4,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
 const REVIEWER_TOKEN = "reviewer-bypass-token";
+const EARLY_ADOPTER_LIMIT = 100;
 
 function generateId() {
   return crypto.randomUUID();
@@ -85,8 +86,13 @@ export async function POST(request: Request) {
       await db.prepare("INSERT OR IGNORE INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
         .bind(userId, email, name, "supabase-managed")
         .run();
-      await db.prepare("INSERT OR IGNORE INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-        .bind(generateId(), "free", userId)
+
+      // Check if this user qualifies as an early adopter (first 100 users)
+      const userCount = await db.prepare("SELECT COUNT(*) as count FROM User").first<{ count: number }>();
+      const isEarlyAdopter = (userCount?.count ?? 0) <= EARLY_ADOPTER_LIMIT ? 1 : 0;
+
+      await db.prepare("INSERT OR IGNORE INTO Subscription (id, tier, isEarlyAdopter, userId) VALUES (?, ?, ?, ?)")
+        .bind(generateId(), "free", isEarlyAdopter, userId)
         .run();
     }
 
@@ -118,6 +124,12 @@ export async function POST(request: Request) {
       if (type === "subscription") {
         const subscription = await db.prepare("SELECT * FROM Subscription WHERE userId = ?").bind(userId).first();
         return NextResponse.json({ success: true, data: subscription || null });
+      }
+      if (type === "user_count") {
+        const result = await db.prepare("SELECT COUNT(*) as count FROM User").first<{ count: number }>();
+        const totalUsers = result?.count ?? 0;
+        const spotsRemaining = Math.max(0, EARLY_ADOPTER_LIMIT - totalUsers);
+        return NextResponse.json({ success: true, data: { totalUsers, earlyAdopterLimit: EARLY_ADOPTER_LIMIT, spotsRemaining } });
       }
     }
 

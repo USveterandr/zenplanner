@@ -111,21 +111,21 @@ export interface SubscriptionLimits {
 
 export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
   free: {
-    maxGoals: -1,
-    maxHabits: -1,
-    aiMessagesPerMonth: -1,
-    hasAdvancedAnalytics: true,
-    hasSmartReminders: true,
-    hasTeamCollaboration: true,
-    hasSharedCalendars: true,
-    hasAdminDashboard: true,
-    hasApiAccess: true,
-    hasCustomIntegrations: true,
+    maxGoals: 2,
+    maxHabits: 3,
+    aiMessagesPerMonth: 10,
+    hasAdvancedAnalytics: false,
+    hasSmartReminders: false,
+    hasTeamCollaboration: false,
+    hasSharedCalendars: false,
+    hasAdminDashboard: false,
+    hasApiAccess: false,
+    hasCustomIntegrations: false,
     hasWhiteLabel: false,
     hasSSO: false,
     hasDedicatedSupport: false,
     hasSLA: false,
-    maxTeamMembers: -1,
+    maxTeamMembers: 1,
   },
   starter: {
     maxGoals: 5,
@@ -197,7 +197,31 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> =
   },
 };
 
+// Early adopters (first 100 users) get unlimited everything on the free tier
+const EARLY_ADOPTER_LIMITS: SubscriptionLimits = {
+  maxGoals: -1,
+  maxHabits: -1,
+  aiMessagesPerMonth: -1,
+  hasAdvancedAnalytics: true,
+  hasSmartReminders: true,
+  hasTeamCollaboration: true,
+  hasSharedCalendars: true,
+  hasAdminDashboard: true,
+  hasApiAccess: true,
+  hasCustomIntegrations: true,
+  hasWhiteLabel: false,
+  hasSSO: false,
+  hasDedicatedSupport: false,
+  hasSLA: false,
+  maxTeamMembers: -1,
+};
+
 export function getPlanLimits(tier: SubscriptionTier): SubscriptionLimits {
+  return SUBSCRIPTION_LIMITS[tier];
+}
+
+export function getEffectiveLimits(tier: SubscriptionTier, isEarlyAdopter: boolean): SubscriptionLimits {
+  if (isEarlyAdopter && tier === 'free') return EARLY_ADOPTER_LIMITS;
   return SUBSCRIPTION_LIMITS[tier];
 }
 
@@ -236,6 +260,7 @@ export interface SubscriptionInfo {
   tier: SubscriptionTier;
   startDate: string | null;
   trialEndDate: string | null;
+  isEarlyAdopter: boolean;
 }
 
 export const SUBSCRIPTION_PLANS = [
@@ -315,6 +340,7 @@ interface AppState {
   subscription: SubscriptionTier;
   aiUsageThisMonth: number;
   aiUsageResetDate: string;
+  earlyAdopterSpotsRemaining: number | null;
   teamMembers: TeamMember[];
   activeTab: string;
   selectedDate: string;
@@ -368,6 +394,7 @@ interface AppState {
   
   setSubscription: (tier: SubscriptionTier) => void;
   selectPlan: (tier: SubscriptionTier) => Promise<void>;
+  fetchEarlyAdopterSpots: () => Promise<void>;
   
   setActiveTab: (tab: string) => void;
   setSelectedDate: (date: string) => void;
@@ -386,7 +413,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       user: null,
       accessToken: null,
-      subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null },
+      subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter: false },
       tasks: [],
       goals: [],
       habits: [],
@@ -396,6 +423,7 @@ export const useAppStore = create<AppState>()(
       subscription: 'free',
       aiUsageThisMonth: 0,
       aiUsageResetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+      earlyAdopterSpotsRemaining: null,
       teamMembers: [],
       activeTab: 'tasks',
       selectedDate: new Date().toISOString().split('T')[0],
@@ -406,21 +434,21 @@ export const useAppStore = create<AppState>()(
       clearLastError: () => set({ lastError: null }),
 
       canAddGoal: () => {
-        const { goals, subscription } = get();
-        const limits = SUBSCRIPTION_LIMITS[subscription];
+        const { goals, subscription, subscriptionInfo } = get();
+        const limits = getEffectiveLimits(subscription, subscriptionInfo.isEarlyAdopter);
         if (limits.maxGoals === -1) return true;
         return goals.length < limits.maxGoals;
       },
 
       canAddHabit: () => {
-        const { habits, subscription } = get();
-        const limits = SUBSCRIPTION_LIMITS[subscription];
+        const { habits, subscription, subscriptionInfo } = get();
+        const limits = getEffectiveLimits(subscription, subscriptionInfo.isEarlyAdopter);
         if (limits.maxHabits === -1) return true;
         return habits.length < limits.maxHabits;
       },
 
       canUseAI: () => {
-        const { subscription, aiUsageThisMonth, aiUsageResetDate } = get();
+        const { subscription, subscriptionInfo, aiUsageThisMonth, aiUsageResetDate } = get();
         const now = new Date();
         
         // Reset usage if new month
@@ -428,20 +456,20 @@ export const useAppStore = create<AppState>()(
           set({ aiUsageThisMonth: 0, aiUsageResetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString() });
         }
         
-        const limits = SUBSCRIPTION_LIMITS[subscription];
+        const limits = getEffectiveLimits(subscription, subscriptionInfo.isEarlyAdopter);
         if (limits.aiMessagesPerMonth === -1) return true;
         return aiUsageThisMonth < limits.aiMessagesPerMonth;
       },
 
       getRemainingAIQuota: () => {
-        const { subscription, aiUsageThisMonth, aiUsageResetDate } = get();
+        const { subscription, subscriptionInfo, aiUsageThisMonth, aiUsageResetDate } = get();
         const now = new Date();
         
         if (now.toISOString() >= aiUsageResetDate) {
-          return SUBSCRIPTION_LIMITS[subscription].aiMessagesPerMonth;
+          return getEffectiveLimits(subscription, subscriptionInfo.isEarlyAdopter).aiMessagesPerMonth;
         }
         
-        const limit = SUBSCRIPTION_LIMITS[subscription].aiMessagesPerMonth;
+        const limit = getEffectiveLimits(subscription, subscriptionInfo.isEarlyAdopter).aiMessagesPerMonth;
         if (limit === -1) return -1;
         return Math.max(0, limit - aiUsageThisMonth);
       },
@@ -458,10 +486,10 @@ export const useAppStore = create<AppState>()(
       },
 
       addTeamMember: async (member) => {
-        const { user, subscription, teamMembers } = get();
+        const { user, subscription, subscriptionInfo, teamMembers } = get();
         if (!user) return;
         
-        const limits = SUBSCRIPTION_LIMITS[subscription];
+        const limits = getEffectiveLimits(subscription, subscriptionInfo.isEarlyAdopter);
         if (limits.maxTeamMembers !== -1 && teamMembers.length >= limits.maxTeamMembers) {
           throw new Error('Team member limit reached');
         }
@@ -509,7 +537,7 @@ export const useAppStore = create<AppState>()(
                 hobbies: result.user.hobbies,
               },
               accessToken: result.session ? (result.session as any).access_token : null,
-              subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null }
+              subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter: false }
             });
             await get().loadUserData();
             return { success: true };
@@ -533,7 +561,7 @@ export const useAppStore = create<AppState>()(
             user: reviewerUser,
             accessToken: 'reviewer-bypass-token',
             subscription: 'pro',
-            subscriptionInfo: { tier: 'pro', startDate: now.toISOString(), trialEndDate: trialEnd.toISOString() },
+            subscriptionInfo: { tier: 'pro', startDate: now.toISOString(), trialEndDate: trialEnd.toISOString(), isEarlyAdopter: false },
           });
           await get().loadUserData();
           return { success: true };
@@ -579,7 +607,7 @@ export const useAppStore = create<AppState>()(
           user: null,
           accessToken: null,
           subscription: 'free', 
-          subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null },
+      subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter: false },
           tasks: [],
           goals: [],
           habits: [],
@@ -619,7 +647,7 @@ export const useAppStore = create<AppState>()(
         
         set({ isLoading: true });
         try {
-          const [tasksResult, goalsResult, habitsResult, categoriesResult, remindersResult, messagesResult, subResult] = await Promise.all([
+          const [tasksResult, goalsResult, habitsResult, categoriesResult, remindersResult, messagesResult, subResult, userCountResult] = await Promise.all([
             fetchAPI('/data', { userId: user.id, action: 'get', type: 'tasks' }),
             fetchAPI('/data', { userId: user.id, action: 'get', type: 'goals' }),
             fetchAPI('/data', { userId: user.id, action: 'get', type: 'habits' }),
@@ -627,6 +655,7 @@ export const useAppStore = create<AppState>()(
             fetchAPI('/data', { userId: user.id, action: 'get', type: 'reminders' }),
             fetchAPI('/data', { userId: user.id, action: 'get', type: 'chatMessages' }),
             fetchAPI('/data', { userId: user.id, action: 'get', type: 'subscription' }),
+            fetchAPI('/data', { action: 'get', type: 'user_count' }),
           ]);
 
           set({
@@ -641,7 +670,9 @@ export const useAppStore = create<AppState>()(
               tier: subResult.data.tier,
               startDate: subResult.data.startDate,
               trialEndDate: subResult.data.trialEndDate,
-            } : { tier: 'free', startDate: null, trialEndDate: null },
+              isEarlyAdopter: Boolean(subResult.data.isEarlyAdopter),
+            } : { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter: false },
+            earlyAdopterSpotsRemaining: userCountResult.data?.spotsRemaining ?? null,
           });
         } catch (error) {
           console.error('Error loading user data:', error);
@@ -1012,7 +1043,7 @@ export const useAppStore = create<AppState>()(
 
         set({
           subscription: tier,
-          subscriptionInfo: { tier, startDate: now.toISOString(), trialEndDate },
+          subscriptionInfo: { tier, startDate: now.toISOString(), trialEndDate, isEarlyAdopter: get().subscriptionInfo.isEarlyAdopter },
         });
 
         if (user) {
@@ -1021,6 +1052,17 @@ export const useAppStore = create<AppState>()(
           } catch (error) {
             console.error('Error updating subscription:', error);
           }
+        }
+      },
+
+      fetchEarlyAdopterSpots: async () => {
+        try {
+          const result = await fetchAPI('/data', { action: 'get', type: 'user_count' });
+          if (result.data) {
+            set({ earlyAdopterSpotsRemaining: result.data.spotsRemaining });
+          }
+        } catch (error) {
+          console.error('Error fetching early adopter spots:', error);
         }
       },
 

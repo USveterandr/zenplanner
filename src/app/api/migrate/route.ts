@@ -156,6 +156,10 @@ export async function POST(request: Request) {
     `ALTER TABLE User ADD COLUMN avatarUrl TEXT`,
     `ALTER TABLE User ADD COLUMN profession TEXT`,
     `ALTER TABLE User ADD COLUMN hobbies TEXT`,
+    // Early adopter tracking
+    `ALTER TABLE Subscription ADD COLUMN isEarlyAdopter INTEGER NOT NULL DEFAULT 0`,
+    // Mark all existing users as early adopters (they signed up before the cutoff)
+    `UPDATE Subscription SET isEarlyAdopter = 1 WHERE isEarlyAdopter = 0`,
   ];
 
   const results: { sql: string; ok: boolean; error?: string }[] = [];

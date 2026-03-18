@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS, isTrialActive, getTrialDaysRemaining } from '@/lib/store';
+import { useAppStore, calculateStats, getTasksForDate, getCalendarEvents, SUBSCRIPTION_PLANS, isTrialActive, getTrialDaysRemaining, getEffectiveLimits } from '@/lib/store';
 import type { Priority, SubscriptionTier } from '@/lib/store';
 import { SUPPORTED_LOCALES } from '@/lib/i18n';
 import { useTranslation } from '@/hooks/use-translation';
@@ -12,7 +12,7 @@ import {
   ListTodo, Sparkles, Target, Zap, BarChart3, Calendar, Crown,
   CheckCircle2, Plus, Circle, Flag, Trash2, Send, Bot, User,
   Loader2, Flame, ChevronLeft, ChevronRight, Bell,
-  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2, Download, Camera, Pencil
+  Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2, Download, Camera, Pencil, Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,7 @@ export default function Home() {
     _hasHydrated: storeHasHydrated, activeTab, setActiveTab, selectedDate, setSelectedDate,
     subscription, setSubscription, user, signUp, signIn, signOut,
     subscriptionInfo, selectPlan, teamMembers, canAddGoal, canAddHabit,
+    earlyAdopterSpotsRemaining, fetchEarlyAdopterSpots,
     setLocale, locale, timeFormat, setTimeFormat,
     lastError, clearLastError, updateProfile,
   } = useAppStore();
@@ -677,21 +678,47 @@ export default function Home() {
 
   // Show onboarding welcome screen for new users
   if (user && !showOnboarding && subscription === 'free') {
+    const isEarlyAdopter = subscriptionInfo.isEarlyAdopter;
+
     return (
       <div className="min-h-screen bg-linear-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:to-slate-900 p-4 flex items-center justify-center">
         <div className="max-w-md mx-auto text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-linear-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4 shadow-lg">
+          <div className={cn(
+            "inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg",
+            isEarlyAdopter
+              ? "bg-linear-to-br from-amber-500 to-yellow-600"
+              : "bg-linear-to-br from-violet-500 to-indigo-600"
+          )}>
             <Crown className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('welcomeUser', { name: user.name })}</h1>
-          <p className="text-muted-foreground mb-6">{tr.allFeaturesFreeLine}</p>
-          <Button
-            className="bg-linear-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
-            size="lg"
-            onClick={() => setShowOnboarding(true)}
-          >
-            {tr.getStarted}
-          </Button>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('welcomeUser', { name: user.name })}</h1>
+          {isEarlyAdopter ? (
+            <>
+              <Badge className="bg-amber-500 text-white mb-3">{tr.earlyAdopter}</Badge>
+              <p className="text-muted-foreground mb-6">{tr.earlyAdopterWelcome}</p>
+              <Button
+                className="bg-linear-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700"
+                size="lg"
+                onClick={() => setShowOnboarding(true)}
+              >
+                {tr.getStarted}
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-muted-foreground mb-6">{tr.choosePlanToStart}</p>
+              <Button
+                className="bg-linear-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700"
+                size="lg"
+                onClick={() => {
+                  setShowOnboarding(true);
+                  setActiveTab('pricing');
+                }}
+              >
+                {tr.viewPlans}
+              </Button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -909,50 +936,110 @@ export default function Home() {
     return days;
   };
 
-  const renderPricing = () => (
-    <div className="h-full min-h-0 flex flex-col p-4 overflow-auto">
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold mb-2">{tr.appName}</h2>
-        <p className="text-muted-foreground">{tr.allFeaturesFree}</p>
-      </div>
+  const renderPricing = () => {
+    const isEarlyAdopter = subscriptionInfo.isEarlyAdopter;
 
-      <Card className="mb-6 bg-linear-to-r from-violet-500/10 to-indigo-500/10 border-violet-200">
-        <CardContent className="p-6 text-center">
-          <div className="bg-violet-500 p-3 rounded-full inline-flex mb-4">
-            <Crown className="h-8 w-8 text-white" />
+    return (
+      <div className="h-full min-h-0 flex flex-col p-4 overflow-auto">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">{tr.appName}</h2>
+          <p className="text-muted-foreground">{tr.choosePlan}</p>
+        </div>
+
+        {/* Early Adopter Banner */}
+        {isEarlyAdopter && (
+          <Card className="mb-6 bg-linear-to-r from-amber-500/10 to-yellow-500/10 border-amber-300">
+            <CardContent className="p-6 text-center">
+              <div className="bg-amber-500 p-3 rounded-full inline-flex mb-4">
+                <Crown className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">{tr.earlyAdopter}</h3>
+              <p className="text-muted-foreground mb-2">{tr.earlyAdopterDesc}</p>
+              <Badge className="bg-amber-500 text-white text-sm px-3 py-1">{tr.lifetimeFree}</Badge>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Early Adopter Spots Counter (for non-early-adopters only) */}
+        {!isEarlyAdopter && earlyAdopterSpotsRemaining !== null && (
+          <div className="text-center mb-4">
+            {earlyAdopterSpotsRemaining > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {tr.earlyAdopterSpotsLeft.replace('{count}', String(earlyAdopterSpotsRemaining))}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">{tr.earlyAdopterSpotsFilled}</p>
+            )}
           </div>
-          <h3 className="text-xl font-bold mb-2">{tr.freeForever}</h3>
-          <p className="text-muted-foreground mb-4">{tr.enjoyUnlimited}</p>
-          <ul className="text-left space-y-2 max-w-sm mx-auto">
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{tr.unlimitedTasksGoalsHabits}</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{tr.aiAdvisorUnlimited}</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{tr.advancedAnalytics}</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{tr.teamCollaboration}</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{tr.smartReminders}</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{tr.calendarSync}</span>
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
-    </div>
-  );
+        )}
+
+        {/* Plan Cards */}
+        {!isEarlyAdopter && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {SUBSCRIPTION_PLANS.map((plan) => (
+              <Card
+                key={plan.id}
+                className={cn(
+                  'relative overflow-hidden transition-all hover:shadow-lg',
+                  plan.highlighted && 'border-violet-500 border-2 shadow-lg',
+                  subscription === plan.id && 'ring-2 ring-violet-500'
+                )}
+              >
+                {plan.highlighted && (
+                  <div className="absolute top-0 right-0 bg-violet-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg flex items-center gap-1">
+                    <Star className="h-3 w-3" />
+                    {tr.popular}
+                  </div>
+                )}
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold">${plan.price}</span>
+                    <span className="text-muted-foreground">/{tr.perMonth}</span>
+                  </div>
+                  {plan.hasTrial && (
+                    <p className="text-xs text-violet-600 font-medium">
+                      {tr.trialDays.replace('{days}', String(plan.trialDays))}
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <ul className="space-y-2">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  {subscription === plan.id ? (
+                    <Badge className="w-full justify-center py-2 bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                      {tr.currentPlanBadge}
+                    </Badge>
+                  ) : (
+                    <Button
+                      className={cn(
+                        'w-full',
+                        plan.highlighted
+                          ? 'bg-linear-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700'
+                          : ''
+                      )}
+                      variant={plan.highlighted ? 'default' : 'outline'}
+                      onClick={() => handleSelectPlan(plan.id)}
+                    >
+                      {plan.hasTrial ? tr.startTrial : tr.selectPlan}
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1852,7 +1939,12 @@ export default function Home() {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="text-sm font-medium">{tr.currentPlan}</div>
-                          <div className="text-xs text-muted-foreground capitalize">{subscription}</div>
+                          <div className="text-xs text-muted-foreground capitalize flex items-center gap-2">
+                            {subscription}
+                            {subscriptionInfo.isEarlyAdopter && (
+                              <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0">{tr.earlyAdopter}</Badge>
+                            )}
+                          </div>
                         </div>
                         <Button size="sm" variant="outline" onClick={() => setActiveTab('pricing')}>
                           {tr.changePlan}
@@ -1980,7 +2072,7 @@ export default function Home() {
                     className={cn('text-white hover:bg-white/10 gap-2 shrink-0', activeTab === tab.id && 'bg-white/20')}>
                     <tab.icon className="h-4 w-4" />
                     {tab.label}
-                    {tab.id === 'pricing' && subscription === 'free' && (
+                    {tab.id === 'pricing' && subscription === 'free' && !subscriptionInfo.isEarlyAdopter && (
                       <Badge className="bg-amber-500 text-xs ml-1">{tr.newBadge}</Badge>
                     )}
                   </Button>
@@ -1994,13 +2086,18 @@ export default function Home() {
                 <div className="bg-white/10 rounded-lg px-3 py-1.5">
                   <span className="text-sm font-medium">{pendingTasks} {tr.pendingCount}</span>
                 </div>
-                {subscription !== 'free' && (
+                {subscription !== 'free' ? (
                   <Badge className="bg-amber-500">
                     <Crown className="h-3 w-3 mr-1" />
                     {SUBSCRIPTION_PLANS.find(p => p.id === subscription)?.name}
                     {trialActive && ` (${tr.trial})`}
                   </Badge>
-                )}
+                ) : subscriptionInfo.isEarlyAdopter ? (
+                  <Badge className="bg-amber-500">
+                    <Crown className="h-3 w-3 mr-1" />
+                    {tr.earlyAdopter}
+                  </Badge>
+                ) : null}
               </div>
               {/* Avatar + name + sign out: always visible */}
               <div className="flex items-center gap-2">
