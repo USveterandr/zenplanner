@@ -1957,7 +1957,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-dvh w-full overflow-x-hidden bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-linear-to-r from-violet-600 via-indigo-600 to-violet-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
@@ -2022,8 +2022,8 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto p-4">
-        <Card className="h-[calc(100vh-140px)] overflow-hidden">
+      <main className={cn("container mx-auto p-4", isMobile && "pb-20")}>
+        <Card className={cn("overflow-hidden", isMobile ? "h-[calc(100dvh-180px)]" : "h-[calc(100dvh-140px)]")}>
           <AnimatePresence mode="wait">
             <motion.div key={activeTab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }} className="h-full">
               {renderContent()}
@@ -2034,13 +2034,13 @@ export default function Home() {
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-card border-t z-30">
-          <div className="flex justify-around py-2">
+        <nav className="fixed bottom-0 left-0 right-0 bg-card border-t z-30" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="flex overflow-x-auto hide-scrollbar py-1">
             {tabs.map((tab) => (
               <Button key={tab.id} variant="ghost" onClick={() => setActiveTab(tab.id)}
-                className={cn('flex flex-col items-center gap-1 py-2 px-2 h-auto', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground')}>
-                <tab.icon className="h-5 w-5" />
-                <span className="text-xs">{tab.label}</span>
+                className={cn('flex flex-col items-center gap-0.5 py-1.5 px-2 h-auto min-w-[4rem] shrink-0', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground')}>
+                <tab.icon className="h-4 w-4" />
+                <span className="text-[10px] leading-tight">{tab.label}</span>
               </Button>
             ))}
           </div>
