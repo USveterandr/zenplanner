@@ -566,7 +566,7 @@ export const useAppStore = create<AppState>()(
       signIn: async (email, password) => {
         // Hardcoded reviewer account bypass (Google Play review)
         if (email === 'reviewer@zenplanner.app' && password === 'Password123') {
-          // Use the same UUID the server uses so D1 lookups match
+          // Use the same UUID the server uses so DB lookups match
           const REVIEWER_UUID = '00000000-0000-0000-0000-000000000001';
           const reviewerUser: UserAccount = { id: REVIEWER_UUID, name: 'Google Reviewer', email: 'reviewer@zenplanner.app' };
           const now = new Date();

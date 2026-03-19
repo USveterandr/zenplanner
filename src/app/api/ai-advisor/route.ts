@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
-import { getAI } from "@/lib/db";
 
+/**
+ * AI Advisor endpoint — uses OpenAI-compatible API.
+ * Previously used Cloudflare Workers AI (@cf/meta/llama-3.1-8b-instruct).
+ * Now uses the OPENAI_API_KEY environment variable with any OpenAI-compatible endpoint.
+ *
+ * Set these env vars:
+ *   AI_API_KEY     — API key (OpenAI, Groq, Together, etc.)
+ *   AI_API_URL     — Base URL (defaults to https://api.openai.com/v1)
+ *   AI_MODEL       — Model name (defaults to gpt-4o-mini)
+ */
 export async function POST(request: Request) {
   try {
-    const ai = getAI();
+    const apiKey = process.env.AI_API_KEY;
+    const apiUrl = process.env.AI_API_URL || "https://api.openai.com/v1";
+    const model = process.env.AI_MODEL || "gpt-4o-mini";
 
-    if (!ai) {
-      return NextResponse.json({ success: false, error: "AI not available in this environment" }, { status: 503 });
+    if (!apiKey) {
+      return NextResponse.json({ success: false, error: "AI not configured — set AI_API_KEY" }, { status: 503 });
     }
-    
+
     const body = await request.json();
     const { message, context, history } = body as { message: string; context?: any; history?: { role: 'user' | 'assistant'; content: string }[] };
 
@@ -46,18 +57,32 @@ export async function POST(request: Request) {
       content: m.content,
     }));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const aiResponse = await (ai as any).run("@cf/meta/llama-3.1-8b-instruct", {
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...conversationHistory,
-        { role: "user", content: message },
-      ],
-      max_tokens: 800,
-    }) as { response?: string };
+    const res = await fetch(`${apiUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...conversationHistory,
+          { role: "user", content: message },
+        ],
+        max_tokens: 800,
+      }),
+    });
 
-    const response = aiResponse.response || "I'm here to help! Try asking me about productivity, task management, or your goals.";
-    
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("AI API error:", res.status, text);
+      return NextResponse.json({ success: false, error: "Failed to get AI response" }, { status: 500 });
+    }
+
+    const aiData = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const response = aiData.choices?.[0]?.message?.content || "I'm here to help! Try asking me about productivity, task management, or your goals.";
+
     return NextResponse.json({ success: true, response });
   } catch (error) {
     console.error("AI error:", error);

@@ -6,13 +6,6 @@ const withSerwist = withSerwistInit({
   swDest: "public/sw.js",
 });
 
-// Only run in local dev (next dev), not during CI builds or production
-if (process.env.NODE_ENV === "development") {
-  import("@opennextjs/cloudflare").then(({ initOpenNextCloudflareForDev }) => {
-    initOpenNextCloudflareForDev();
-  });
-}
-
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,

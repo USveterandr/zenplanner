@@ -8,7 +8,7 @@ function generateId() {
 
 export async function POST(request: Request) {
   try {
-    const db = getDb(); // null on Vercel — D1 upserts are Cloudflare-only best-effort
+    const db = getDb();
 
     const body = await request.json();
     const { email, name, password, action, userId } = body as {
@@ -22,35 +22,27 @@ export async function POST(request: Request) {
     const supabase = getSupabaseClient();
 
     // ── OAUTH SYNC ────────────────────────────────────────────────────────────
-    // Called client-side after a successful OAuth sign-in to ensure a D1 row exists
+    // Called client-side after a successful OAuth sign-in to ensure a DB row exists
     if (action === "oauth_sync") {
       if (!userId || !email) {
         return NextResponse.json({ success: false, error: "Missing userId or email" }, { status: 400 });
       }
-      if (!db) {
-        // On Vercel there is no D1 — succeed silently; row will be created on Cloudflare
-        return NextResponse.json({ success: true });
-      }
-      const existing = await db
-        .prepare("SELECT id, name, avatarUrl, profession, hobbies FROM User WHERE id = ?")
-        .bind(userId)
-        .first() as { id: string; name?: string; avatarUrl?: string; profession?: string; hobbies?: string } | null;
+
+      const { data: existing } = await db
+        .from("User")
+        .select("id, name, avatarUrl, profession, hobbies")
+        .eq("id", userId)
+        .single();
 
       if (!existing) {
         const displayName = name || email.split("@")[0];
-        await db
-          .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
-          .bind(userId, email, displayName, "supabase-managed")
-          .run();
-        await db
-          .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-          .bind(generateId(), "free", userId)
-          .run();
+        await db.from("User").insert({ id: userId, email, name: displayName, password: "supabase-managed" });
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId });
         return NextResponse.json({ success: true, profile: { name: displayName } });
       }
 
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         profile: {
           name: existing.name,
           avatarUrl: existing.avatarUrl,
@@ -61,25 +53,17 @@ export async function POST(request: Request) {
     }
 
     // ── REVIEWER BYPASS (Google Play review account) ─────────────────────────
-    // This hardcoded bypass allows the Google Play reviewer to sign in without
-    // needing an account in Supabase. The credentials are listed in the Play
-    // Console demo credentials section.
     const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
     if (action === "login" &&
         email === "reviewer@zenplanner.app" &&
         password === "Password123") {
-      // Ensure a D1 row exists for the reviewer on Cloudflare
-      if (db) {
-        const existing = await db.prepare("SELECT id FROM User WHERE id = ?").bind(REVIEWER_ID).first();
-        if (!existing) {
-          await db.prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
-            .bind(REVIEWER_ID, "reviewer@zenplanner.app", "Google Reviewer", "bypass")
-            .run();
-          await db.prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-            .bind(generateId(), "free", REVIEWER_ID)
-            .run();
-        }
+      // Ensure a DB row exists for the reviewer
+      const { data: existing } = await db.from("User").select("id").eq("id", REVIEWER_ID).single();
+      if (!existing) {
+        await db.from("User").insert({ id: REVIEWER_ID, email: "reviewer@zenplanner.app", name: "Google Reviewer", password: "bypass" });
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: REVIEWER_ID });
       }
+
       return NextResponse.json({
         success: true,
         user: { id: REVIEWER_ID, email: "reviewer@zenplanner.app", name: "Google Reviewer" },
@@ -116,24 +100,11 @@ export async function POST(request: Request) {
 
       const supabaseUserId = authData.user.id;
 
-      // Upsert user row in D1 (Cloudflare only — skip gracefully on Vercel)
-      if (db) {
-        const existing = await db
-          .prepare("SELECT id FROM User WHERE id = ?")
-          .bind(supabaseUserId)
-          .first();
-
-        if (!existing) {
-          await db
-            .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
-            .bind(supabaseUserId, email, name, "supabase-managed")
-            .run();
-
-          await db
-            .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-            .bind(generateId(), "free", supabaseUserId)
-            .run();
-        }
+      // Upsert user row in Postgres
+      const { data: existing } = await db.from("User").select("id").eq("id", supabaseUserId).single();
+      if (!existing) {
+        await db.from("User").insert({ id: supabaseUserId, email, name, password: "supabase-managed" });
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: supabaseUserId });
       }
 
       // Sign in immediately to get a session token
@@ -143,7 +114,6 @@ export async function POST(request: Request) {
       });
 
       if (sessionError || !sessionData.session) {
-        // User was created but auto sign-in failed — still return success
         return NextResponse.json({
           success: true,
           user: { id: supabaseUserId, email, name },
@@ -179,48 +149,30 @@ export async function POST(request: Request) {
       const supabaseUserId = sessionData.user.id;
       let userName = (sessionData.user.user_metadata?.name as string | undefined) || email.split("@")[0];
 
-      // Ensure D1 row exists (Cloudflare only — skip gracefully on Vercel)
-      if (db) {
-        const existing = await db
-          .prepare("SELECT id, name, avatarUrl, profession, hobbies FROM User WHERE id = ?")
-          .bind(supabaseUserId)
-          .first() as { id: string; name: string; avatarUrl?: string; profession?: string; hobbies?: string } | null;
+      // Ensure DB row exists
+      const { data: existing } = await db
+        .from("User")
+        .select("id, name, avatarUrl, profession, hobbies")
+        .eq("id", supabaseUserId)
+        .single();
 
-        if (!existing) {
-          // Migrate: create D1 row for legacy Supabase user
-          await db
-            .prepare("INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)")
-            .bind(supabaseUserId, email, userName, "supabase-managed")
-            .run();
-          await db
-            .prepare("INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)")
-            .bind(generateId(), "free", supabaseUserId)
-            .run();
-        } else {
-          userName = existing.name || userName;
-        }
-
-        return NextResponse.json({
-          success: true,
-          user: { 
-            id: supabaseUserId, 
-            email, 
-            name: userName,
-            avatarUrl: existing?.avatarUrl,
-            profession: existing?.profession,
-            hobbies: existing?.hobbies
-          },
-          session: {
-            access_token: sessionData.session.access_token,
-            refresh_token: sessionData.session.refresh_token,
-            expires_at: sessionData.session.expires_at,
-          },
-        });
+      if (!existing) {
+        await db.from("User").insert({ id: supabaseUserId, email, name: userName, password: "supabase-managed" });
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: supabaseUserId });
+      } else {
+        userName = existing.name || userName;
       }
 
       return NextResponse.json({
         success: true,
-        user: { id: supabaseUserId, email, name: userName },
+        user: {
+          id: supabaseUserId,
+          email,
+          name: userName,
+          avatarUrl: existing?.avatarUrl,
+          profession: existing?.profession,
+          hobbies: existing?.hobbies
+        },
         session: {
           access_token: sessionData.session.access_token,
           refresh_token: sessionData.session.refresh_token,
@@ -238,7 +190,6 @@ export async function POST(request: Request) {
 
       const { data: { user }, error } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
       if (error || !user) {
-        // Fallback for reviewer bypass
         const isReviewer = authHeader.includes("reviewer-bypass-token");
         if (!isReviewer) {
           return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -246,27 +197,17 @@ export async function POST(request: Request) {
       }
 
       const verifiedUserId = user?.id || "00000000-0000-0000-0000-000000000001";
-      const { name, profession, hobbies, avatarUrl } = body as any;
+      const { name: profileName, profession, hobbies, avatarUrl } = body as any;
 
-      if (db) {
-        // Build dynamic SET clause
-        const updates: string[] = [];
-        const bindings: any[] = [];
-        
-        if (name !== undefined) { updates.push("name = ?"); bindings.push(name); }
-        if (profession !== undefined) { updates.push("profession = ?"); bindings.push(profession); }
-        if (hobbies !== undefined) { updates.push("hobbies = ?"); bindings.push(hobbies); }
-        if (avatarUrl !== undefined) { updates.push("avatarUrl = ?"); bindings.push(avatarUrl); }
-        
-        if (updates.length > 0) {
-          updates.push("updatedAt = datetime('now')");
-          bindings.push(verifiedUserId);
-          
-          await db
-            .prepare(`UPDATE User SET ${updates.join(", ")} WHERE id = ?`)
-            .bind(...bindings)
-            .run();
-        }
+      const updates: Record<string, any> = {};
+      if (profileName !== undefined) updates.name = profileName;
+      if (profession !== undefined) updates.profession = profession;
+      if (hobbies !== undefined) updates.hobbies = hobbies;
+      if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+
+      if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date().toISOString();
+        await db.from("User").update(updates).eq("id", verifiedUserId);
       }
 
       return NextResponse.json({ success: true });

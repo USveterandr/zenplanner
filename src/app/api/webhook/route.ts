@@ -19,9 +19,6 @@ const PAYPAL_PLAN_IDS: Record<string, string> = {
 export async function POST(request: Request) {
   try {
     const db = getDb();
-    if (!db) {
-      return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
-    }
 
     const body = (await request.json()) as { event_type: string; resource: Record<string, any> };
     const eventType = body.event_type;
@@ -38,24 +35,20 @@ export async function POST(request: Request) {
     const subscriptionId = resource.id as string | undefined;
     const planId = resource.plan_id as string | undefined;
 
-    async function updateSub(fields: Record<string, string | null | undefined>) {
-      const setClauses: string[] = [];
-      const values: (string | null)[] = [];
+    async function updateSub(fields: Record<string, string | boolean | null | undefined>) {
+      const updates: Record<string, any> = {};
       for (const [col, val] of Object.entries(fields)) {
         if (val !== undefined) {
-          setClauses.push(`${col} = ?`);
-          values.push(val);
+          updates[col] = val;
         }
       }
-      if (setClauses.length === 0) return;
+      if (Object.keys(updates).length === 0) return;
 
       // Try by userId first, fall back to subscriptionId
       if (userId) {
-        values.push(userId);
-        await db!.prepare(`UPDATE Subscription SET ${setClauses.join(", ")} WHERE userId = ?`).bind(...values).run();
+        await db.from("Subscription").update(updates).eq("userId", userId);
       } else if (subscriptionId) {
-        values.push(subscriptionId);
-        await db!.prepare(`UPDATE Subscription SET ${setClauses.join(", ")} WHERE subscriptionId = ?`).bind(...values).run();
+        await db.from("Subscription").update(updates).eq("subscriptionId", subscriptionId);
       }
     }
 
@@ -95,8 +88,6 @@ export async function POST(request: Request) {
       case "BILLING.SUBSCRIPTION.CANCELLED": {
         await updateSub({
           status: "cancelled",
-          // Keep the tier active until end of billing period
-          // PayPal sends the final date in status_update_time
         });
         console.log(`Subscription cancelled for user ${userId}`);
         break;
@@ -125,13 +116,12 @@ export async function POST(request: Request) {
 
       // ── Payment completed (recurring) ───────────────────────────────
       case "PAYMENT.SALE.COMPLETED": {
-        // A recurring payment succeeded — subscription stays active
         const billingAgreementId = resource.billing_agreement_id;
         if (billingAgreementId) {
-          // Update the subscription via billingAgreementId (which is the subscriptionId)
-          await db.prepare(
-            "UPDATE Subscription SET status = 'active' WHERE subscriptionId = ?"
-          ).bind(billingAgreementId).run();
+          await db
+            .from("Subscription")
+            .update({ status: "active" })
+            .eq("subscriptionId", billingAgreementId);
         }
         console.log(`Payment completed for subscription ${billingAgreementId}`);
         break;

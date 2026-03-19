@@ -89,11 +89,11 @@ export async function POST(request: Request) {
       const accessToken = await getPayPalAccessToken();
       const base = getPayPalBaseUrl();
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://zen-planner.isaactrinidadllc.workers.dev";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://zenplanner.vercel.app";
 
       const subscriptionPayload = {
         plan_id: planId,
-        custom_id: userId, // links PayPal subscription back to our user
+        custom_id: userId,
         application_context: {
           brand_name: "Zen Planner",
           locale: "en-US",
@@ -129,7 +129,6 @@ export async function POST(request: Request) {
         links: { rel: string; href: string }[];
       };
 
-      // Find the approval URL for the user to complete payment
       const approvalLink = subscription.links.find((l) => l.rel === "approve");
 
       return NextResponse.json({
@@ -150,10 +149,6 @@ export async function POST(request: Request) {
       }
 
       const db = getDb();
-      if (!db) {
-        return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
-      }
-
       const { subscriptionId, tier } = body as { subscriptionId: string; tier: string };
 
       // Verify subscription status with PayPal
@@ -198,13 +193,17 @@ export async function POST(request: Request) {
       const resolvedTier = PAYPAL_TIER_FROM_PLAN[sub.plan_id] || tier;
       const renewsAt = sub.billing_info?.next_billing_time || null;
 
-      // Update D1 subscription record
+      // Update subscription record
       await db
-        .prepare(
-          `UPDATE Subscription SET tier = ?, subscriptionId = ?, status = ?, renewsAt = ?, startDate = datetime('now') WHERE userId = ?`
-        )
-        .bind(resolvedTier, subscriptionId, "active", renewsAt, userId)
-        .run();
+        .from("Subscription")
+        .update({
+          tier: resolvedTier,
+          subscriptionId,
+          status: "active",
+          renewsAt,
+          startDate: new Date().toISOString(),
+        })
+        .eq("userId", userId);
 
       return NextResponse.json({
         success: true,
@@ -220,15 +219,13 @@ export async function POST(request: Request) {
       }
 
       const db = getDb();
-      if (!db) {
-        return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
-      }
 
-      // Get current subscription ID from D1
-      const record = await db
-        .prepare("SELECT subscriptionId FROM Subscription WHERE userId = ?")
-        .bind(userId)
-        .first<{ subscriptionId: string | null }>();
+      // Get current subscription ID from DB
+      const { data: record } = await db
+        .from("Subscription")
+        .select("subscriptionId")
+        .eq("userId", userId)
+        .single();
 
       if (!record?.subscriptionId) {
         return NextResponse.json({ success: false, error: "No active subscription" }, { status: 400 });
@@ -258,13 +255,11 @@ export async function POST(request: Request) {
         );
       }
 
-      // Update D1
+      // Update DB
       await db
-        .prepare(
-          "UPDATE Subscription SET tier = 'free', status = 'cancelled', subscriptionId = NULL WHERE userId = ?"
-        )
-        .bind(userId)
-        .run();
+        .from("Subscription")
+        .update({ tier: "free", status: "cancelled", subscriptionId: null })
+        .eq("userId", userId);
 
       return NextResponse.json({ success: true });
     }
@@ -277,14 +272,12 @@ export async function POST(request: Request) {
       }
 
       const db = getDb();
-      if (!db) {
-        return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
-      }
 
-      const record = await db
-        .prepare("SELECT * FROM Subscription WHERE userId = ?")
-        .bind(userId)
-        .first();
+      const { data: record } = await db
+        .from("Subscription")
+        .select("*")
+        .eq("userId", userId)
+        .single();
 
       return NextResponse.json({ success: true, data: record });
     }

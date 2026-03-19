@@ -1,309 +1,283 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-export type Env = CloudflareEnv;
+import { getSupabaseServiceClient } from "@/lib/supabase";
 
 /**
- * Safely get the Cloudflare D1 database binding.
- * Returns null when running outside of Cloudflare Workers (e.g. Vercel / local Next.js).
+ * Get the Supabase service-role client for server-side database operations.
+ * Bypasses RLS — all authorization is handled by our API routes.
  */
-export function getDb(): CloudflareEnv["zen_planner_db"] | null {
-  try {
-    return getCloudflareContext().env.zen_planner_db ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Safely get the Cloudflare AI binding.
- * Returns null when running outside of Cloudflare Workers.
- */
-export function getAI(): CloudflareEnv["AI"] | null {
-  try {
-    return getCloudflareContext().env.AI ?? null;
-  } catch {
-    return null;
-  }
+export function getDb() {
+  return getSupabaseServiceClient();
 }
 
 const generateId = () => crypto.randomUUID();
 
-// User functions
-export async function createUser(env: Env, email: string, name: string, password: string) {
+// ── User functions ───────────────────────────────────────────────────────────
+
+export async function createUser(email: string, name: string, password: string) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(
-    "INSERT INTO User (id, email, name, password) VALUES (?, ?, ?, ?)"
-  ).bind(id, email, name, password).run();
-  
-  await env.zen_planner_db.prepare(
-    "INSERT INTO Subscription (id, tier, userId) VALUES (?, ?, ?)"
-  ).bind(generateId(), "free", id).run();
-  
+  await db.from("User").insert({ id, email, name, password });
+
+  await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: id });
+
   return { id, email, name };
 }
 
-export async function getUserByEmail(env: Env, email: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM User WHERE email = ?"
-  ).bind(email).first();
-  return result;
+export async function getUserByEmail(email: string) {
+  const db = getDb();
+  const { data } = await db.from("User").select("*").eq("email", email).single();
+  return data;
 }
 
-export async function getUserById(env: Env, id: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM User WHERE id = ?"
-  ).bind(id).first();
-  return result;
+export async function getUserById(id: string) {
+  const db = getDb();
+  const { data } = await db.from("User").select("*").eq("id", id).single();
+  return data;
 }
 
-// Task functions
-export async function getTasks(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM Task WHERE userId = ? ORDER BY \"order\" ASC"
-  ).bind(userId).all();
-  return (result.results || []).map((row: any) => ({
-    ...row,
-    completed: Boolean(row.completed),
-    subtasks: JSON.parse(row.subtasks || "[]"),
-  }));
+// ── Task functions ───────────────────────────────────────────────────────────
+
+export async function getTasks(userId: string) {
+  const db = getDb();
+  const { data } = await db
+    .from("Task")
+    .select("*")
+    .eq("userId", userId)
+    .order("order", { ascending: true });
+  return data || [];
 }
 
-export async function createTask(env: Env, userId: string, task: any) {
+export async function createTask(userId: string, task: any) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(`
-    INSERT INTO Task (id, title, description, completed, priority, dueDate, dueTime, reminderMinutesBefore, category, subtasks, \"order\", userId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
+  await db.from("Task").insert({
     id,
-    task.title,
-    task.description || null,
-    task.completed ? 1 : 0,
-    task.priority || "medium",
-    task.dueDate || null,
-    task.dueTime || null,
-    task.reminderMinutesBefore || null,
-    task.category || "personal",
-    JSON.stringify(task.subtasks || []),
-    task.order || 0,
-    userId
-  ).run();
+    title: task.title,
+    description: task.description || null,
+    completed: task.completed || false,
+    priority: task.priority || "medium",
+    dueDate: task.dueDate || null,
+    dueTime: task.dueTime || null,
+    reminderMinutesBefore: task.reminderMinutesBefore || null,
+    category: task.category || "personal",
+    subtasks: task.subtasks || [],
+    order: task.order || 0,
+    userId,
+  });
   return { id, ...task };
 }
 
-export async function updateTask(env: Env, id: string, updates: any) {
-  const fields: string[] = [];
-  const values: any[] = [];
-  
-  if (updates.title !== undefined) { fields.push("title = ?"); values.push(updates.title); }
-  if (updates.description !== undefined) { fields.push("description = ?"); values.push(updates.description); }
-  if (updates.completed !== undefined) { fields.push("completed = ?"); values.push(updates.completed ? 1 : 0); }
-  if (updates.priority !== undefined) { fields.push("priority = ?"); values.push(updates.priority); }
-  if (updates.dueDate !== undefined) { fields.push("dueDate = ?"); values.push(updates.dueDate); }
-  if (updates.dueTime !== undefined) { fields.push("dueTime = ?"); values.push(updates.dueTime); }
-  if (updates.category !== undefined) { fields.push("category = ?"); values.push(updates.category); }
-  if (updates.subtasks !== undefined) { fields.push("subtasks = ?"); values.push(JSON.stringify(updates.subtasks)); }
-  if (updates.order !== undefined) { fields.push("\"order\" = ?"); values.push(updates.order); }
-  
-  fields.push("updatedAt = CURRENT_TIMESTAMP");
-  values.push(id);
-  
-  await env.zen_planner_db.prepare(`UPDATE Task SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
+export async function updateTask(id: string, updates: any) {
+  const db = getDb();
+  const fields: Record<string, any> = {};
+
+  if (updates.title !== undefined) fields.title = updates.title;
+  if (updates.description !== undefined) fields.description = updates.description;
+  if (updates.completed !== undefined) fields.completed = updates.completed;
+  if (updates.priority !== undefined) fields.priority = updates.priority;
+  if (updates.dueDate !== undefined) fields.dueDate = updates.dueDate;
+  if (updates.dueTime !== undefined) fields.dueTime = updates.dueTime;
+  if (updates.category !== undefined) fields.category = updates.category;
+  if (updates.subtasks !== undefined) fields.subtasks = updates.subtasks;
+  if (updates.order !== undefined) fields.order = updates.order;
+
+  fields.updatedAt = new Date().toISOString();
+
+  await db.from("Task").update(fields).eq("id", id);
 }
 
-export async function deleteTask(env: Env, id: string) {
-  await env.zen_planner_db.prepare("DELETE FROM Task WHERE id = ?").bind(id).run();
+export async function deleteTask(id: string) {
+  const db = getDb();
+  await db.from("Task").delete().eq("id", id);
 }
 
-// Goal functions
-export async function getGoals(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM Goal WHERE userId = ?"
-  ).bind(userId).all();
-  return (result.results || []).map((row: any) => ({
-    ...row,
-    milestones: JSON.parse(row.milestones || "[]"),
-  }));
+// ── Goal functions ───────────────────────────────────────────────────────────
+
+export async function getGoals(userId: string) {
+  const db = getDb();
+  const { data } = await db.from("Goal").select("*").eq("userId", userId);
+  return data || [];
 }
 
-export async function createGoal(env: Env, userId: string, goal: any) {
+export async function createGoal(userId: string, goal: any) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(`
-    INSERT INTO Goal (id, title, description, color, milestones, progress, targetDate, userId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
+  await db.from("Goal").insert({
     id,
-    goal.title,
-    goal.description || null,
-    goal.color || "#8b5cf6",
-    JSON.stringify(goal.milestones || []),
-    0,
-    goal.targetDate || null,
-    userId
-  ).run();
+    title: goal.title,
+    description: goal.description || null,
+    color: goal.color || "#8b5cf6",
+    milestones: goal.milestones || [],
+    progress: 0,
+    targetDate: goal.targetDate || null,
+    userId,
+  });
   return { id, ...goal, progress: 0 };
 }
 
-export async function updateGoal(env: Env, id: string, updates: any) {
-  const fields: string[] = [];
-  const values: any[] = [];
-  
-  if (updates.title !== undefined) { fields.push("title = ?"); values.push(updates.title); }
-  if (updates.description !== undefined) { fields.push("description = ?"); values.push(updates.description); }
-  if (updates.color !== undefined) { fields.push("color = ?"); values.push(updates.color); }
-  if (updates.milestones !== undefined) { fields.push("milestones = ?"); values.push(JSON.stringify(updates.milestones)); }
-  if (updates.progress !== undefined) { fields.push("progress = ?"); values.push(updates.progress); }
-  if (updates.targetDate !== undefined) { fields.push("targetDate = ?"); values.push(updates.targetDate); }
-  
-  fields.push("updatedAt = CURRENT_TIMESTAMP");
-  values.push(id);
-  
-  await env.zen_planner_db.prepare(`UPDATE Goal SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
+export async function updateGoal(id: string, updates: any) {
+  const db = getDb();
+  const fields: Record<string, any> = {};
+
+  if (updates.title !== undefined) fields.title = updates.title;
+  if (updates.description !== undefined) fields.description = updates.description;
+  if (updates.color !== undefined) fields.color = updates.color;
+  if (updates.milestones !== undefined) fields.milestones = updates.milestones;
+  if (updates.progress !== undefined) fields.progress = updates.progress;
+  if (updates.targetDate !== undefined) fields.targetDate = updates.targetDate;
+
+  fields.updatedAt = new Date().toISOString();
+
+  await db.from("Goal").update(fields).eq("id", id);
 }
 
-export async function deleteGoal(env: Env, id: string) {
-  await env.zen_planner_db.prepare("DELETE FROM Goal WHERE id = ?").bind(id).run();
+export async function deleteGoal(id: string) {
+  const db = getDb();
+  await db.from("Goal").delete().eq("id", id);
 }
 
-// Habit functions
-export async function getHabits(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM Habit WHERE userId = ?"
-  ).bind(userId).all();
-  return (result.results || []).map((row: any) => ({
-    ...row,
-    completions: JSON.parse(row.completions || "[]"),
-  }));
+// ── Habit functions ──────────────────────────────────────────────────────────
+
+export async function getHabits(userId: string) {
+  const db = getDb();
+  const { data } = await db.from("Habit").select("*").eq("userId", userId);
+  return data || [];
 }
 
-export async function createHabit(env: Env, userId: string, habit: any) {
+export async function createHabit(userId: string, habit: any) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(`
-    INSERT INTO Habit (id, title, description, frequency, color, completions, streak, bestStreak, userId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
+  await db.from("Habit").insert({
     id,
-    habit.title,
-    habit.description || null,
-    habit.frequency || "daily",
-    habit.color || "#8b5cf6",
-    "[]",
-    0,
-    0,
-    userId
-  ).run();
+    title: habit.title,
+    description: habit.description || null,
+    frequency: habit.frequency || "daily",
+    color: habit.color || "#8b5cf6",
+    completions: [],
+    streak: 0,
+    bestStreak: 0,
+    userId,
+  });
   return { id, ...habit, completions: [], streak: 0, bestStreak: 0 };
 }
 
-export async function updateHabit(env: Env, id: string, updates: any) {
-  const fields: string[] = [];
-  const values: any[] = [];
-  
-  if (updates.title !== undefined) { fields.push("title = ?"); values.push(updates.title); }
-  if (updates.description !== undefined) { fields.push("description = ?"); values.push(updates.description); }
-  if (updates.frequency !== undefined) { fields.push("frequency = ?"); values.push(updates.frequency); }
-  if (updates.color !== undefined) { fields.push("color = ?"); values.push(updates.color); }
-  if (updates.completions !== undefined) { fields.push("completions = ?"); values.push(JSON.stringify(updates.completions)); }
-  if (updates.streak !== undefined) { fields.push("streak = ?"); values.push(updates.streak); }
-  if (updates.bestStreak !== undefined) { fields.push("bestStreak = ?"); values.push(updates.bestStreak); }
-  
-  fields.push("updatedAt = CURRENT_TIMESTAMP");
-  values.push(id);
-  
-  await env.zen_planner_db.prepare(`UPDATE Habit SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
+export async function updateHabit(id: string, updates: any) {
+  const db = getDb();
+  const fields: Record<string, any> = {};
+
+  if (updates.title !== undefined) fields.title = updates.title;
+  if (updates.description !== undefined) fields.description = updates.description;
+  if (updates.frequency !== undefined) fields.frequency = updates.frequency;
+  if (updates.color !== undefined) fields.color = updates.color;
+  if (updates.completions !== undefined) fields.completions = updates.completions;
+  if (updates.streak !== undefined) fields.streak = updates.streak;
+  if (updates.bestStreak !== undefined) fields.bestStreak = updates.bestStreak;
+
+  fields.updatedAt = new Date().toISOString();
+
+  await db.from("Habit").update(fields).eq("id", id);
 }
 
-export async function deleteHabit(env: Env, id: string) {
-  await env.zen_planner_db.prepare("DELETE FROM Habit WHERE id = ?").bind(id).run();
+export async function deleteHabit(id: string) {
+  const db = getDb();
+  await db.from("Habit").delete().eq("id", id);
 }
 
-// Category functions
-export async function getCategories(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM Category WHERE userId = ?"
-  ).bind(userId).all();
-  return result.results || [];
+// ── Category functions ───────────────────────────────────────────────────────
+
+export async function getCategories(userId: string) {
+  const db = getDb();
+  const { data } = await db.from("Category").select("*").eq("userId", userId);
+  return data || [];
 }
 
-export async function createCategory(env: Env, userId: string, category: any) {
+export async function createCategory(userId: string, category: any) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(`
-    INSERT INTO Category (id, name, color, icon, userId)
-    VALUES (?, ?, ?, ?, ?)
-  `).bind(id, category.name, category.color, category.icon || null, userId).run();
+  await db.from("Category").insert({
+    id,
+    name: category.name,
+    color: category.color,
+    icon: category.icon || null,
+    userId,
+  });
   return { id, ...category };
 }
 
-// Reminder functions
-export async function getReminders(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM Reminder WHERE userId = ?"
-  ).bind(userId).all();
-  return (result.results || []).map((row: any) => ({
+// ── Reminder functions ───────────────────────────────────────────────────────
+
+export async function getReminders(userId: string) {
+  const db = getDb();
+  const { data } = await db.from("Reminder").select("*").eq("userId", userId);
+  return (data || []).map((row: any) => ({
     ...row,
     isNotified: Boolean(row.isNotified),
   }));
 }
 
-export async function createReminder(env: Env, userId: string, reminder: any) {
+export async function createReminder(userId: string, reminder: any) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(`
-    INSERT INTO Reminder (id, taskId, taskTitle, dueDate, dueTime, reminderAt, isNotified, userId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
+  await db.from("Reminder").insert({
     id,
-    reminder.taskId,
-    reminder.taskTitle,
-    reminder.dueDate,
-    reminder.dueTime || null,
-    reminder.reminderAt,
-    0,
-    userId
-  ).run();
+    taskId: reminder.taskId,
+    taskTitle: reminder.taskTitle,
+    dueDate: reminder.dueDate,
+    dueTime: reminder.dueTime || null,
+    reminderAt: reminder.reminderAt,
+    isNotified: false,
+    userId,
+  });
   return { id, ...reminder, isNotified: false };
 }
 
-export async function deleteReminder(env: Env, id: string) {
-  await env.zen_planner_db.prepare("DELETE FROM Reminder WHERE id = ?").bind(id).run();
+export async function deleteReminder(id: string) {
+  const db = getDb();
+  await db.from("Reminder").delete().eq("id", id);
 }
 
-// Chat message functions
-export async function getChatMessages(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM ChatMessage WHERE userId = ? ORDER BY timestamp ASC"
-  ).bind(userId).all();
-  return (result.results || []).map((row: any) => ({
-    ...row,
-  }));
+// ── Chat message functions ───────────────────────────────────────────────────
+
+export async function getChatMessages(userId: string) {
+  const db = getDb();
+  const { data } = await db
+    .from("ChatMessage")
+    .select("*")
+    .eq("userId", userId)
+    .order("timestamp", { ascending: true });
+  return data || [];
 }
 
-export async function createChatMessage(env: Env, userId: string, message: any) {
+export async function createChatMessage(userId: string, message: any) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(`
-    INSERT INTO ChatMessage (id, role, content, userId)
-    VALUES (?, ?, ?, ?)
-  `).bind(id, message.role, message.content, userId).run();
+  await db.from("ChatMessage").insert({
+    id,
+    role: message.role,
+    content: message.content,
+    userId,
+  });
   return { id, ...message, timestamp: new Date().toISOString() };
 }
 
-export async function clearChatMessages(env: Env, userId: string) {
-  await env.zen_planner_db.prepare("DELETE FROM ChatMessage WHERE userId = ?").bind(userId).run();
+export async function clearChatMessages(userId: string) {
+  const db = getDb();
+  await db.from("ChatMessage").delete().eq("userId", userId);
 }
 
-// Subscription functions
-export async function getSubscription(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM Subscription WHERE userId = ?"
-  ).bind(userId).first();
-  return result;
+// ── Subscription functions ───────────────────────────────────────────────────
+
+export async function getSubscription(userId: string) {
+  const db = getDb();
+  const { data } = await db.from("Subscription").select("*").eq("userId", userId).single();
+  return data;
 }
 
-export async function updateSubscription(env: Env, userId: string, tier: string) {
-  await env.zen_planner_db.prepare(
-    "UPDATE Subscription SET tier = ? WHERE userId = ?"
-  ).bind(tier, userId).run();
+export async function updateSubscription(userId: string, tier: string) {
+  const db = getDb();
+  await db.from("Subscription").update({ tier }).eq("userId", userId);
 }
 
-export async function updateSubscriptionWithLemonSqueezy(env: Env, userId: string, data: {
+export async function updateSubscriptionDetails(userId: string, data: {
   customerId?: string;
   subscriptionId?: string;
   tier: string;
@@ -311,91 +285,89 @@ export async function updateSubscriptionWithLemonSqueezy(env: Env, userId: strin
   renewsAt?: string;
   endsAt?: string;
 }) {
-  const fields: string[] = ["tier = ?"];
-  const values: any[] = [data.tier];
-  
-  if (data.customerId) {
-    fields.push("customerId = ?");
-    values.push(data.customerId);
-  }
-  if (data.subscriptionId) {
-    fields.push("subscriptionId = ?");
-    values.push(data.subscriptionId);
-  }
-  if (data.status) {
-    fields.push("status = ?");
-    values.push(data.status);
-  }
-  if (data.renewsAt) {
-    fields.push("renewsAt = ?");
-    values.push(data.renewsAt);
-  }
-  if (data.endsAt) {
-    fields.push("endsAt = ?");
-    values.push(data.endsAt);
-  }
-  
-  values.push(userId);
-  
-  await env.zen_planner_db.prepare(
-    `UPDATE Subscription SET ${fields.join(", ")} WHERE userId = ?`
-  ).bind(...values).run();
+  const db = getDb();
+  const fields: Record<string, any> = { tier: data.tier };
+
+  if (data.customerId) fields.customerId = data.customerId;
+  if (data.subscriptionId) fields.subscriptionId = data.subscriptionId;
+  if (data.status) fields.status = data.status;
+  if (data.renewsAt) fields.renewsAt = data.renewsAt;
+  if (data.endsAt) fields.endsAt = data.endsAt;
+
+  await db.from("Subscription").update(fields).eq("userId", userId);
 }
 
-// AI Usage functions
-export async function getAIUsage(env: Env, userId: string, month: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM AIUsage WHERE userId = ? AND month = ?"
-  ).bind(userId, month).first();
-  return result;
+// ── AI Usage functions ───────────────────────────────────────────────────────
+
+export async function getAIUsage(userId: string, month: string) {
+  const db = getDb();
+  const { data } = await db
+    .from("AIUsage")
+    .select("*")
+    .eq("userId", userId)
+    .eq("month", month)
+    .single();
+  return data;
 }
 
-export async function incrementAIUsage(env: Env, userId: string, month: string) {
-  const existing = await getAIUsage(env, userId, month);
+export async function incrementAIUsage(userId: string, month: string) {
+  const db = getDb();
+  const existing = await getAIUsage(userId, month);
   if (existing) {
-    await env.zen_planner_db.prepare(
-      "UPDATE AIUsage SET count = count + 1 WHERE userId = ? AND month = ?"
-    ).bind(userId, month).run();
+    await db
+      .from("AIUsage")
+      .update({ count: existing.count + 1 })
+      .eq("userId", userId)
+      .eq("month", month);
   } else {
-    await env.zen_planner_db.prepare(
-      "INSERT INTO AIUsage (id, userId, month, count) VALUES (?, ?, ?, 1)"
-    ).bind(generateId(), userId, month).run();
+    await db.from("AIUsage").insert({
+      id: generateId(),
+      userId,
+      month,
+      count: 1,
+    });
   }
 }
 
-// Team Member functions
-export async function getTeamMembers(env: Env, userId: string) {
-  const result = await env.zen_planner_db.prepare(
-    "SELECT * FROM TeamMember WHERE ownerId = ? OR userId = ? ORDER BY joinedAt DESC"
-  ).bind(userId, userId).all();
-  return (result.results || []);
+// ── Team Member functions ────────────────────────────────────────────────────
+
+export async function getTeamMembers(userId: string) {
+  const db = getDb();
+  const { data } = await db
+    .from("TeamMember")
+    .select("*")
+    .or(`ownerId.eq.${userId},userId.eq.${userId}`)
+    .order("joinedAt", { ascending: false });
+  return data || [];
 }
 
-export async function addTeamMember(env: Env, ownerId: string, member: { name: string; email: string; role: string }) {
+export async function addTeamMember(ownerId: string, member: { name: string; email: string; role: string }) {
+  const db = getDb();
   const id = generateId();
-  await env.zen_planner_db.prepare(`
-    INSERT INTO TeamMember (id, ownerId, name, email, role, joinedAt)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(id, ownerId, member.name, member.email, member.role, new Date().toISOString()).run();
-  return { id, ...member, joinedAt: new Date().toISOString() };
+  const joinedAt = new Date().toISOString();
+  await db.from("TeamMember").insert({
+    id,
+    ownerId,
+    name: member.name,
+    email: member.email,
+    role: member.role,
+    joinedAt,
+  });
+  return { id, ...member, joinedAt };
 }
 
-export async function removeTeamMember(env: Env, id: string) {
-  await env.zen_planner_db.prepare("DELETE FROM TeamMember WHERE id = ?").bind(id).run();
+export async function removeTeamMember(id: string) {
+  const db = getDb();
+  await db.from("TeamMember").delete().eq("id", id);
 }
 
-export async function updateTeamMember(env: Env, id: string, updates: { name?: string; email?: string; role?: string }) {
-  const fields: string[] = [];
-  const values: any[] = [];
-  
-  if (updates.name) { fields.push("name = ?"); values.push(updates.name); }
-  if (updates.email) { fields.push("email = ?"); values.push(updates.email); }
-  if (updates.role) { fields.push("role = ?"); values.push(updates.role); }
-  
-  values.push(id);
-  
-  await env.zen_planner_db.prepare(
-    `UPDATE TeamMember SET ${fields.join(", ")} WHERE id = ?`
-  ).bind(...values).run();
-}
+export async function updateTeamMember(id: string, updates: { name?: string; email?: string; role?: string }) {
+  const db = getDb();
+  const fields: Record<string, any> = {};
 
+  if (updates.name) fields.name = updates.name;
+  if (updates.email) fields.email = updates.email;
+  if (updates.role) fields.role = updates.role;
+
+  await db.from("TeamMember").update(fields).eq("id", id);
+}
