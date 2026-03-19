@@ -279,6 +279,9 @@ export default function Home() {
   const [taskFilterPriority, setTaskFilterPriority] = useState<'all' | Priority>('all');
   const [taskCategory, setTaskCategory] = useState('personal');
 
+  // PayPal loading state
+  const [paypalLoading, setPaypalLoading] = useState<string | null>(null);
+
   // Task edit modal state
   const [editingTask, setEditingTask] = useState<import('@/lib/store').Task | null>(null);
   const [editTaskTitle, setEditTaskTitle] = useState('');
@@ -328,6 +331,51 @@ export default function Home() {
       return now >= reminderTime && now <= dueDateTime;
     });
   }, [tasks, isHydrated]);
+
+  // Non-early-adopters on free tier auto-redirect to pricing tab
+  const isNonEarlyAdopterOnFree = user && subscription === 'free' && !subscriptionInfo.isEarlyAdopter;
+
+  useEffect(() => {
+    if (isNonEarlyAdopterOnFree && !showOnboarding) {
+      setShowOnboarding(true);
+      setActiveTab('pricing');
+    }
+  }, [isNonEarlyAdopterOnFree, showOnboarding, setActiveTab]);
+
+  // Handle PayPal return (after approval or cancellation)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const paypalStatus = urlParams.get('paypal');
+    const paypalTier = urlParams.get('tier');
+    const paypalSubscriptionId = urlParams.get('subscription_id');
+
+    if (paypalStatus === 'success' && paypalSubscriptionId && paypalTier) {
+      // Activate the subscription in our backend
+      activatePayPalSubscription(paypalSubscriptionId, paypalTier as SubscriptionTier).then(() => {
+        toast.success(tr.planSelected || 'Plan activated! Welcome to Zen Planner.');
+        setActiveTab('tasks');
+      }).catch(() => {
+        toast.error('Subscription activation pending. It may take a moment.');
+      });
+
+      // Clean PayPal params from URL
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('paypal');
+      cleanUrl.searchParams.delete('tier');
+      cleanUrl.searchParams.delete('subscription_id');
+      cleanUrl.searchParams.delete('token');
+      cleanUrl.searchParams.delete('ba_token');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    } else if (paypalStatus === 'cancel') {
+      toast.info('Payment cancelled. You can try again anytime.');
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('paypal');
+      cleanUrl.searchParams.delete('tier');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Now we can do the conditional return AFTER all hooks
   if (!_hasHydrated) {
@@ -397,8 +445,6 @@ export default function Home() {
     if (error) setAuthError(error.message);
   };
 
-  const [paypalLoading, setPaypalLoading] = useState<string | null>(null);
-
   const handleSelectPlan = async (tier: SubscriptionTier) => {
     try {
       setPaypalLoading(tier);
@@ -416,41 +462,6 @@ export default function Home() {
       setPaypalLoading(null);
     }
   };
-
-  // Handle PayPal return (after approval or cancellation)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const urlParams = new URLSearchParams(window.location.search);
-    const paypalStatus = urlParams.get('paypal');
-    const paypalTier = urlParams.get('tier');
-    const paypalSubscriptionId = urlParams.get('subscription_id');
-
-    if (paypalStatus === 'success' && paypalSubscriptionId && paypalTier) {
-      // Activate the subscription in our backend
-      activatePayPalSubscription(paypalSubscriptionId, paypalTier as SubscriptionTier).then(() => {
-        toast.success(tr.planSelected || 'Plan activated! Welcome to Zen Planner.');
-        setActiveTab('tasks');
-      }).catch(() => {
-        toast.error('Subscription activation pending. It may take a moment.');
-      });
-
-      // Clean PayPal params from URL
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete('paypal');
-      cleanUrl.searchParams.delete('tier');
-      cleanUrl.searchParams.delete('subscription_id');
-      cleanUrl.searchParams.delete('token');
-      cleanUrl.searchParams.delete('ba_token');
-      window.history.replaceState({}, '', cleanUrl.toString());
-    } else if (paypalStatus === 'cancel') {
-      toast.info('Payment cancelled. You can try again anytime.');
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete('paypal');
-      cleanUrl.searchParams.delete('tier');
-      window.history.replaceState({}, '', cleanUrl.toString());
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Quick add handlers for calendar
   const handleQuickAddTask = async () => {
@@ -726,18 +737,6 @@ export default function Home() {
       </div>
     );
   }
-
-  // Show onboarding welcome screen for new users
-  // Non-early-adopters on free tier auto-redirect to pricing tab (handled by useEffect below)
-  const isNonEarlyAdopterOnFree = user && subscription === 'free' && !subscriptionInfo.isEarlyAdopter;
-
-  // Auto-redirect non-early-adopters on free tier to pricing tab
-  useEffect(() => {
-    if (isNonEarlyAdopterOnFree && !showOnboarding) {
-      setShowOnboarding(true);
-      setActiveTab('pricing');
-    }
-  }, [isNonEarlyAdopterOnFree, showOnboarding]);
 
   if (user && !showOnboarding && subscription === 'free' && subscriptionInfo.isEarlyAdopter) {
     return (
