@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       const accessToken = await getPayPalAccessToken();
       const base = getPayPalBaseUrl();
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://zenplanner.vercel.app";
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://zenplanner.vercel.app").trim();
 
       const subscriptionPayload = {
         plan_id: planId,
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
         const text = await res.text();
         console.error("PayPal create subscription error:", text);
         return NextResponse.json(
-          { success: false, error: "PayPal subscription creation failed", debug: text },
+          { success: false, error: "PayPal subscription creation failed" },
           { status: 500 }
         );
       }
@@ -285,6 +285,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (error: any) {
     console.error("PayPal API error:", error?.message || error);
-    return NextResponse.json({ success: false, error: error?.message || "Internal server error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
