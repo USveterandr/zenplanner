@@ -120,7 +120,7 @@ export default function DeleteAccountPage() {
                   <li>Open your browser settings</li>
                   <li>Go to Privacy &amp; Security &gt; Clear browsing data</li>
                   <li>Select &quot;Cookies and site data&quot;</li>
-                  <li>Clear data for zenplanner-app.isaactrinidadllc.workers.dev</li>
+                  <li>Clear data for zenplanner.vercel.app</li>
                 </ol>
               </div>
             </section>

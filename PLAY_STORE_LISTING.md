@@ -96,7 +96,7 @@ Requirements:
 | Collects user data? | Yes |
 | Data encrypted in transit? | Yes |
 | Account creation | Username and password |
-| Delete account URL | https://zenplanner-app.isaactrinidadllc.workers.dev/delete-account |
+| Delete account URL | https://zenplanner.vercel.app/delete-account |
 | Request data deletion? | Yes |
 
 ---
@@ -115,4 +115,4 @@ Complete the questionnaire based on:
 
 - Developer: Isaac Trinidad
 - Email: isaactrinidadllc@gmail.com
-- Website: https://zenplanner-app.isaactrinidadllc.workers.dev
+- Website: https://zenplanner.vercel.app

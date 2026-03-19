@@ -5,8 +5,8 @@
 This guide provides step-by-step instructions to publish Zen Planner on Google Play Store and create a downloadable APK for non-Google Play users.
 
 ## Live Website
-- **URL:** https://zenplanner-app.isaactrinidadllc.workers.dev
-- **Install Page:** https://zenplanner-app.isaactrinidadllc.workers.dev/install
+- **URL:** https://zenplanner.vercel.app
+- **Install Page:** https://zenplanner.vercel.app/install
 
 ---
 
@@ -29,7 +29,7 @@ This guide provides step-by-step instructions to publish Zen Planner on Google P
 - ✅ Splash screen configured
 - ✅ Shortcuts configured
 - ✅ Payment system removed - all features free
-- ✅ Deployed on Cloudflare Workers: https://zenplanner-app.isaactrinidadllc.workers.dev
+- ✅ Deployed on Vercel: https://zenplanner.vercel.app
 
 ---
 
@@ -77,7 +77,7 @@ You need to create the following images. Use the existing icons in `/public/` fo
 ## Step 3: Privacy Policy
 
 Host the privacy policy online. Options:
-1. Use existing: `https://zenplanner-app.isaactrinidadllc.workers.dev/privacy-policy`
+1. Use existing: `https://zenplanner.vercel.app/privacy-policy`
 2. Or convert `PRIVACY_POLICY.md` to HTML and host it
 
 ---
@@ -192,7 +192,7 @@ There are two ways to install Zen Planner on iPhone/iPad without using the App S
 
 This works without any Apple developer account:
 
-1. Open **https://zenplanner-app.isaactrinidadllc.workers.dev/install** in Safari
+1. Open **https://zenplanner.vercel.app/install** in Safari
 2. Tap the **Share button** (square with arrow up)
 3. Scroll down and tap **"Add to Home Screen"**
 4. Tap **"Add"** in the top right
@@ -203,7 +203,7 @@ This works without any Apple developer account:
 - No certificate required
 - Instant installation
 
-**Direct Link:** https://zenplanner-app.isaactrinidadllc.workers.dev/install
+**Direct Link:** https://zenplanner.vercel.app/install
 
 ### Option 2: Apple Enterprise / Custom App (Requires Paid Account)
 
@@ -222,10 +222,10 @@ Add these links to your website:
 
 ```html
 <!-- Main App -->
-<a href="https://zenplanner-app.isaactrinidadllc.workers.dev">Open Zen Planner</a>
+<a href="https://zenplanner.vercel.app">Open Zen Planner</a>
 
 <!-- Install Page -->
-<a href="https://zenplanner-app.isaactrinidadllc.workers.dev/install">Install Zen Planner</a>
+<a href="https://zenplanner.vercel.app/install">Install Zen Planner</a>
 ```
 
 ---

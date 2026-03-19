@@ -22,7 +22,7 @@ plugins {
 
 def twaManifest = [
     applicationId: 'com.zenplanner.app',
-    hostName: 'zen-planner.isaactrinidadllc.workers.dev', // The domain being opened in the TWA.
+    hostName: 'zenplanner.vercel.app', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'Zen Planner', // The application name.
     launcherName: 'Zen Planner', // The name shown on the Android Launcher.
@@ -76,12 +76,12 @@ android {
             // The URL the Web Manifest for the Progressive Web App that the TWA points to. This
             // is used by Chrome OS and Meta Quest to open the Web version of the PWA instead of
             // the TWA, as it will probably give a better user experience for non-mobile devices.
-            resValue "string", "webManifestUrl", 'https://zen-planner.isaactrinidadllc.workers.dev/manifest.json'
+            resValue "string", "webManifestUrl", 'https://zenplanner.vercel.app/manifest.json'
         
 
         
             // This is used by Meta Quest.
-            resValue "string", "fullScopeUrl", 'https://zen-planner.isaactrinidadllc.workers.dev/'
+            resValue "string", "fullScopeUrl", 'https://zenplanner.vercel.app/'
         
 
         

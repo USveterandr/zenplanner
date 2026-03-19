@@ -56,7 +56,7 @@ You have the right to:
 
 If you have questions about this Privacy Policy, please contact us:
 - Email: isaactrinidadllc@gmail.com
-- Website: https://zenplanner-app.isaactrinidadllc.workers.dev
+- Website: https://zenplanner.vercel.app
 
 ### 9. Changes to This Policy
 

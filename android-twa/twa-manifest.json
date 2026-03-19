@@ -1,6 +1,6 @@
 {
   "packageId": "com.zenplanner.app",
-  "host": "zen-planner.isaactrinidadllc.workers.dev",
+  "host": "zenplanner.vercel.app",
   "name": "Zen Planner",
   "launcherName": "Zen Planner",
   "display": "standalone",
@@ -13,8 +13,8 @@
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://zen-planner.isaactrinidadllc.workers.dev/icon-512.png",
-  "maskableIconUrl": "https://zen-planner.isaactrinidadllc.workers.dev/icon-maskable-512.png",
+  "iconUrl": "https://zenplanner.vercel.app/icon-512.png",
+  "maskableIconUrl": "https://zenplanner.vercel.app/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
@@ -26,11 +26,11 @@
       "name": "Add Task",
       "shortName": "Task",
       "url": "/?tab=tasks",
-      "chosenIconUrl": "https://zen-planner.isaactrinidadllc.workers.dev/icon-96.png"
+      "chosenIconUrl": "https://zenplanner.vercel.app/icon-96.png"
     }
   ],
   "generatorApp": "nicolo-nicolo/nicolo-cli",
-  "webManifestUrl": "https://zen-planner.isaactrinidadllc.workers.dev/manifest.json",
+  "webManifestUrl": "https://zenplanner.vercel.app/manifest.json",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -39,7 +39,7 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://zen-planner.isaactrinidadllc.workers.dev/",
+  "fullScopeUrl": "https://zenplanner.vercel.app/",
   "minSdkVersion": 19,
   "orientation": "portrait",
   "fingerprints": [
