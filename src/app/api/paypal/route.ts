@@ -80,6 +80,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
       }
 
+      // Block early adopters from creating paid subscriptions
+      const db = getDb();
+      const { data: subRecord } = await db
+        .from("Subscription")
+        .select("isEarlyAdopter")
+        .eq("userId", userId)
+        .single();
+
+      if (subRecord?.isEarlyAdopter) {
+        return NextResponse.json(
+          { success: false, error: "Early adopters have lifetime free access — no payment needed!" },
+          { status: 400 }
+        );
+      }
+
       const { tier } = body as { tier: string };
       const planId = PAYPAL_PLAN_IDS[tier];
       if (!planId) {

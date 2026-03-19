@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSupabaseClient } from "@/lib/supabase";
 
+const EARLY_ADOPTER_LIMIT = 30;
+
 function generateId() {
   return crypto.randomUUID();
+}
+
+async function checkEarlyAdopter(db: ReturnType<typeof getDb>): Promise<boolean> {
+  const { count } = await db.from("User").select("*", { count: "exact", head: true });
+  return (count ?? 0) <= EARLY_ADOPTER_LIMIT;
 }
 
 export async function POST(request: Request) {
@@ -37,7 +44,8 @@ export async function POST(request: Request) {
       if (!existing) {
         const displayName = name || email.split("@")[0];
         await db.from("User").insert({ id: userId, email, name: displayName, password: "supabase-managed" });
-        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId });
+        const isEarlyAdopter = await checkEarlyAdopter(db);
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter, userId });
         return NextResponse.json({ success: true, profile: { name: displayName } });
       }
 
@@ -61,7 +69,7 @@ export async function POST(request: Request) {
       const { data: existing } = await db.from("User").select("id").eq("id", REVIEWER_ID).single();
       if (!existing) {
         await db.from("User").insert({ id: REVIEWER_ID, email: "reviewer@zenplanner.app", name: "Google Reviewer", password: "bypass" });
-        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: REVIEWER_ID });
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter: true, userId: REVIEWER_ID });
       }
 
       return NextResponse.json({
@@ -104,7 +112,8 @@ export async function POST(request: Request) {
       const { data: existing } = await db.from("User").select("id").eq("id", supabaseUserId).single();
       if (!existing) {
         await db.from("User").insert({ id: supabaseUserId, email, name, password: "supabase-managed" });
-        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: supabaseUserId });
+        const isEarlyAdopter = await checkEarlyAdopter(db);
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter, userId: supabaseUserId });
       }
 
       // Sign in immediately to get a session token
@@ -158,7 +167,8 @@ export async function POST(request: Request) {
 
       if (!existing) {
         await db.from("User").insert({ id: supabaseUserId, email, name: userName, password: "supabase-managed" });
-        await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: supabaseUserId });
+        const isEarlyAdopter = await checkEarlyAdopter(db);
+        await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter, userId: supabaseUserId });
       } else {
         userName = existing.name || userName;
       }
