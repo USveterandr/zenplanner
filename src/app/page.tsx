@@ -127,6 +127,22 @@ export default function Home() {
 
         if (session?.access_token) {
           useAppStore.setState({ accessToken: session.access_token });
+          // If the user state is already hydrated, fetch fresh data to sync across devices
+          if (currentUser) {
+            useAppStore.getState().loadUserData();
+          } else if (session.user) {
+            // Zustand state was cleared, but Supabase auth is still active. Restore user.
+            const name = (session.user.user_metadata?.full_name as string | undefined) ||
+                         (session.user.user_metadata?.name as string | undefined) ||
+                         session.user.email?.split('@')[0] || 'User';
+            useAppStore.setState({
+              user: { id: session.user.id, name, email: session.user.email ?? '' }
+            });
+            useAppStore.getState().loadUserData();
+          }
+        } else if (currentUser && isReviewer) {
+          // Sync data for the reviewer bypass account too
+          useAppStore.getState().loadUserData();
         } else if (currentUser && !isReviewer && !session) {
           // User appears logged-in but Supabase has no valid session.
           // This happens on iPhone when Safari ITP clears localStorage.
@@ -198,6 +214,27 @@ export default function Home() {
 
     return () => authSub.unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync data when app comes to foreground (e.g. switching back to the app on mobile)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const store = useAppStore.getState();
+        if (store.user) {
+          store.loadUserData();
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Also trigger on window focus for desktop browsers
+    window.addEventListener('focus', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, []);
 
   // Show a toast whenever a save operation fails
