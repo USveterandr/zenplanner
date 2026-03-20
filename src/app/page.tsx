@@ -14,6 +14,7 @@ import {
   Loader2, Flame, ChevronLeft, ChevronRight, Bell,
   Check, CreditCard, LogOut, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Clock, Users, Settings, Share2, Download, Camera, Pencil, Star
 } from 'lucide-react';
+import { Starfield } from '@/components/Starfield';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,6 +57,7 @@ export default function Home() {
     earlyAdopterSpotsRemaining, fetchEarlyAdopterSpots,
     setLocale, locale, timeFormat, setTimeFormat,
     lastError, clearLastError, updateProfile,
+    isLoading,
   } = useAppStore();
 
   // Local hydration status for Next.js consistency
@@ -98,6 +100,7 @@ export default function Home() {
             useAppStore.setState({
               user: { id: sbUser.id, name, email: sbUser.email ?? '' },
               accessToken: session.access_token,
+              isLoading: true,
             });
             await useAppStore.getState().loadUserData();
           }
@@ -163,14 +166,16 @@ export default function Home() {
           // Ensure D1 row exists for OAuth users via the existing login endpoint
           // and retrieve any saved profile fields (avatarUrl, profession, hobbies)
           let profile: { name?: string; avatarUrl?: string; profession?: string; hobbies?: string } = {};
+          let isEarlyAdopter = false;
           try {
             const res = await fetch('/api/auth', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'oauth_sync', userId: id, email, name }),
             });
-            const data = await res.json() as { success: boolean; profile?: typeof profile };
+            const data = await res.json() as { success: boolean; profile?: typeof profile; isEarlyAdopter?: boolean };
             if (data.profile) profile = data.profile;
+            isEarlyAdopter = Boolean(data.isEarlyAdopter);
             // Best-effort — ignore errors here
           } catch { /* noop */ }
 
@@ -184,6 +189,7 @@ export default function Home() {
               hobbies: profile.hobbies,
             },
             accessToken: session.access_token ?? null,
+            subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter },
           });
           await useAppStore.getState().loadUserData();
         }
@@ -333,7 +339,8 @@ export default function Home() {
   }, [tasks, isHydrated]);
 
   // Non-early-adopters on free tier auto-redirect to pricing tab
-  const isNonEarlyAdopterOnFree = user && subscription === 'free' && !subscriptionInfo.isEarlyAdopter;
+  // Guard with isLoading to avoid redirect before loadUserData has fetched the real isEarlyAdopter
+  const isNonEarlyAdopterOnFree = user && !isLoading && subscription === 'free' && !subscriptionInfo.isEarlyAdopter;
 
   useEffect(() => {
     if (isNonEarlyAdopterOnFree && !showOnboarding) {
@@ -380,10 +387,13 @@ export default function Home() {
   // Now we can do the conditional return AFTER all hooks
   if (!_hasHydrated) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-violet-700 dark:text-slate-400">{tr.loading}</p>
+      <div className="min-h-screen relative overflow-hidden bg-linear-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
+        <Starfield starCount={150} mouseInfluence={0.4} className="opacity-90" />
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-violet-700 dark:text-slate-400">{tr.loading}</p>
+          </div>
         </div>
       </div>
     );

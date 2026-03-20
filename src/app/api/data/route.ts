@@ -4,7 +4,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
 const REVIEWER_TOKEN = "reviewer-bypass-token";
-const EARLY_ADOPTER_LIMIT = 30;
+const EARLY_ADOPTER_LIMIT = parseInt(process.env.EARLY_ADOPTER_LIMIT || '30', 10);
 
 function generateId() {
   return crypto.randomUUID();

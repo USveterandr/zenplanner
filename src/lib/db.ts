@@ -17,7 +17,12 @@ export async function createUser(email: string, name: string, password: string) 
   const id = generateId();
   await db.from("User").insert({ id, email, name, password });
 
-  await db.from("Subscription").insert({ id: generateId(), tier: "free", userId: id });
+  // Check if this user qualifies as an early adopter (free forever)
+  const { count } = await db.from("User").select("*", { count: "exact", head: true });
+  const earlyAdopterLimit = parseInt(process.env.EARLY_ADOPTER_LIMIT || '30', 10);
+  const isEarlyAdopter = (count ?? 0) <= earlyAdopterLimit;
+
+  await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter, userId: id });
 
   return { id, email, name };
 }
@@ -370,4 +375,62 @@ export async function updateTeamMember(id: string, updates: { name?: string; ema
   if (updates.role) fields.role = updates.role;
 
   await db.from("TeamMember").update(fields).eq("id", id);
+}
+
+// ── Calendar Connection functions ─────────────────────────────────────────────────
+
+export type CalendarProvider = 'google' | 'microsoft' | 'apple';
+
+export interface CalendarConnection {
+  id: string;
+  userId: string;
+  provider: CalendarProvider;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: string;
+  calendarId?: string;
+  calendarName?: string;
+  isPrimary: boolean;
+  lastSyncedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getCalendarConnections(userId: string): Promise<CalendarConnection[]> {
+  const db = getDb();
+  const { data } = await db.from("CalendarConnection").select("*").eq("userId", userId);
+  return data || [];
+}
+
+export async function getCalendarConnection(userId: string, provider: CalendarProvider): Promise<CalendarConnection | null> {
+  const db = getDb();
+  const { data } = await db.from("CalendarConnection").select("*").eq("userId", userId).eq("provider", provider).single();
+  return data;
+}
+
+export async function createCalendarConnection(userId: string, connection: Omit<CalendarConnection, 'id' | 'createdAt' | 'updatedAt'>) {
+  const db = getDb();
+  const id = generateId();
+  await db.from("CalendarConnection").insert({
+    id,
+    userId,
+    ...connection,
+  });
+  return { id, ...connection };
+}
+
+export async function updateCalendarConnection(id: string, updates: Partial<Omit<CalendarConnection, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) {
+  const db = getDb();
+  const fields: Record<string, any> = { ...updates, updatedAt: new Date().toISOString() };
+  await db.from("CalendarConnection").update(fields).eq("id", id);
+}
+
+export async function deleteCalendarConnection(id: string) {
+  const db = getDb();
+  await db.from("CalendarConnection").delete().eq("id", id);
+}
+
+export async function deleteCalendarConnectionByProvider(userId: string, provider: CalendarProvider) {
+  const db = getDb();
+  await db.from("CalendarConnection").delete().eq("userId", userId).eq("provider", provider);
 }

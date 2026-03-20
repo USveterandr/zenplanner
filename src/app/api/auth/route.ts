@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSupabaseClient } from "@/lib/supabase";
 
-const EARLY_ADOPTER_LIMIT = 30;
+const EARLY_ADOPTER_LIMIT = parseInt(process.env.EARLY_ADOPTER_LIMIT || '30', 10);
 
 function generateId() {
   return crypto.randomUUID();
@@ -46,8 +46,11 @@ export async function POST(request: Request) {
         await db.from("User").insert({ id: userId, email, name: displayName, password: "supabase-managed" });
         const isEarlyAdopter = await checkEarlyAdopter(db);
         await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter, userId });
-        return NextResponse.json({ success: true, profile: { name: displayName } });
+        return NextResponse.json({ success: true, profile: { name: displayName }, isEarlyAdopter });
       }
+
+      // Fetch the existing subscription to return isEarlyAdopter status
+      const { data: existingSub } = await db.from("Subscription").select("isEarlyAdopter").eq("userId", userId).single();
 
       return NextResponse.json({
         success: true,
@@ -56,15 +59,16 @@ export async function POST(request: Request) {
           avatarUrl: existing.avatarUrl,
           profession: existing.profession,
           hobbies: existing.hobbies,
-        }
+        },
+        isEarlyAdopter: Boolean(existingSub?.isEarlyAdopter),
       });
     }
 
     // ── REVIEWER BYPASS (Google Play review account) ─────────────────────────
     const REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
     if (action === "login" &&
-        email === "reviewer@zenplanner.app" &&
-        password === "Password123") {
+      email === "reviewer@zenplanner.app" &&
+      password === "Password123") {
       // Ensure a DB row exists for the reviewer
       const { data: existing } = await db.from("User").select("id").eq("id", REVIEWER_ID).single();
       if (!existing) {
@@ -110,10 +114,14 @@ export async function POST(request: Request) {
 
       // Upsert user row in Postgres
       const { data: existing } = await db.from("User").select("id").eq("id", supabaseUserId).single();
+      let isEarlyAdopter = false;
       if (!existing) {
         await db.from("User").insert({ id: supabaseUserId, email, name, password: "supabase-managed" });
-        const isEarlyAdopter = await checkEarlyAdopter(db);
+        isEarlyAdopter = await checkEarlyAdopter(db);
         await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter, userId: supabaseUserId });
+      } else {
+        const { data: sub } = await db.from("Subscription").select("isEarlyAdopter").eq("userId", supabaseUserId).single();
+        isEarlyAdopter = Boolean(sub?.isEarlyAdopter);
       }
 
       // Sign in immediately to get a session token
@@ -127,6 +135,7 @@ export async function POST(request: Request) {
           success: true,
           user: { id: supabaseUserId, email, name },
           session: null,
+          isEarlyAdopter,
         });
       }
 
@@ -138,6 +147,7 @@ export async function POST(request: Request) {
           refresh_token: sessionData.session.refresh_token,
           expires_at: sessionData.session.expires_at,
         },
+        isEarlyAdopter,
       });
     }
 
@@ -165,12 +175,15 @@ export async function POST(request: Request) {
         .eq("id", supabaseUserId)
         .single();
 
+      let isEarlyAdopter = false;
       if (!existing) {
         await db.from("User").insert({ id: supabaseUserId, email, name: userName, password: "supabase-managed" });
-        const isEarlyAdopter = await checkEarlyAdopter(db);
+        isEarlyAdopter = await checkEarlyAdopter(db);
         await db.from("Subscription").insert({ id: generateId(), tier: "free", isEarlyAdopter, userId: supabaseUserId });
       } else {
         userName = existing.name || userName;
+        const { data: sub } = await db.from("Subscription").select("isEarlyAdopter").eq("userId", supabaseUserId).single();
+        isEarlyAdopter = Boolean(sub?.isEarlyAdopter);
       }
 
       return NextResponse.json({
@@ -188,6 +201,7 @@ export async function POST(request: Request) {
           refresh_token: sessionData.session.refresh_token,
           expires_at: sessionData.session.expires_at,
         },
+        isEarlyAdopter,
       });
     }
 

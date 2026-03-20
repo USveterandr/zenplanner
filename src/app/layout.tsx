@@ -75,7 +75,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Zen Planner" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`} suppressHydrationWarning>
         {children}
         <Analytics />
         <Toaster />

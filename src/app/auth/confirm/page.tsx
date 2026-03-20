@@ -65,6 +65,7 @@ function AuthConfirmInner() {
 
       // Ensure D1 user row exists and retrieve saved profile fields
       let profile: { name?: string; avatarUrl?: string; profession?: string; hobbies?: string } = {};
+      let isEarlyAdopter = false;
       try {
         const res = await fetch('/api/auth', {
           method: 'POST',
@@ -76,8 +77,9 @@ function AuthConfirmInner() {
             name,
           }),
         });
-        const data = await res.json() as { success: boolean; profile?: typeof profile };
+        const data = await res.json() as { success: boolean; profile?: typeof profile; isEarlyAdopter?: boolean };
         if (data.profile) profile = data.profile;
+        isEarlyAdopter = Boolean(data.isEarlyAdopter);
       } catch {
         // non-fatal
       }
@@ -93,6 +95,7 @@ function AuthConfirmInner() {
           hobbies: profile.hobbies,
         },
         accessToken: session.access_token,
+        subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter },
       });
       await useAppStore.getState().loadUserData();
 

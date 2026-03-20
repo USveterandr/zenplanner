@@ -1,4 +1,4 @@
--- ZenPlanner Supabase Postgres Schema
+t-- ZenPlanner Supabase Postgres Schema
 -- Run this in Supabase SQL Editor to create all tables
 -- Migrated from D1/SQLite schema
 
@@ -137,6 +137,27 @@ CREATE INDEX IF NOT EXISTS idx_reminder_userId  ON "Reminder"("userId");
 CREATE INDEX IF NOT EXISTS idx_chatmsg_userId   ON "ChatMessage"("userId");
 CREATE INDEX IF NOT EXISTS idx_aiusage_userId   ON "AIUsage"("userId");
 CREATE INDEX IF NOT EXISTS idx_team_ownerId     ON "TeamMember"("ownerId");
+
+-- Calendar Connections: Store OAuth tokens for external calendar integrations
+CREATE TABLE IF NOT EXISTS "CalendarConnection" (
+  id               TEXT PRIMARY KEY,
+  "userId"         TEXT NOT NULL,
+  provider         TEXT NOT NULL,  -- 'google', 'microsoft', 'apple'
+  "accessToken"    TEXT,
+  "refreshToken"   TEXT,
+  "expiresAt"     TIMESTAMPTZ,
+  "calendarId"    TEXT,  -- Primary calendar ID from the provider
+  "calendarName"  TEXT,  -- Display name of the calendar
+  "isPrimary"     BOOLEAN NOT NULL DEFAULT FALSE,
+  "lastSyncedAt"  TIMESTAMPTZ,
+  "createdAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt"      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  FOREIGN KEY ("userId") REFERENCES "User"(id) ON DELETE CASCADE,
+  UNIQUE ("userId", provider)
+);
+
+-- Index for fetching calendar connections by user
+CREATE INDEX IF NOT EXISTS idx_calendar_connection_userId ON "CalendarConnection"("userId");
 
 -- Reviewer bypass user (static account for testing — does not require Supabase auth)
 INSERT INTO "User" (id, email, name, password)

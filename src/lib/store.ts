@@ -6,7 +6,7 @@ import { getSupabaseClient } from './supabase';
 
 const API_URL = '/api';
 
-async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean; user?: any; data?: any; session?: any }> {
+async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean; user?: any; data?: any; session?: any; isEarlyAdopter?: boolean }> {
   // Attach Bearer token from store so server can verify the caller's identity
   const token = useAppStore.getState().accessToken;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -552,7 +552,7 @@ export const useAppStore = create<AppState>()(
                 hobbies: result.user.hobbies,
               },
               accessToken: result.session ? (result.session as any).access_token : null,
-              subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter: false }
+              subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter: Boolean(result.isEarlyAdopter) }
             });
             await get().loadUserData();
             return { success: true };
@@ -603,6 +603,7 @@ export const useAppStore = create<AppState>()(
                 hobbies: result.user.hobbies,
               },
               accessToken: result.session ? (result.session as any).access_token : null,
+              subscriptionInfo: { tier: 'free', startDate: null, trialEndDate: null, isEarlyAdopter: Boolean(result.isEarlyAdopter) },
             });
             await get().loadUserData();
             return { success: true };
