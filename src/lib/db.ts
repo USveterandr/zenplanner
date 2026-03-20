@@ -408,13 +408,13 @@ export async function getCalendarConnection(userId: string, provider: CalendarPr
   return data;
 }
 
-export async function createCalendarConnection(userId: string, connection: Omit<CalendarConnection, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function createCalendarConnection(userId: string, connection: Omit<CalendarConnection, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
   const db = getDb();
   const id = generateId();
   await db.from("CalendarConnection").insert({
+    ...connection,
     id,
     userId,
-    ...connection,
   });
   return { id, ...connection };
 }

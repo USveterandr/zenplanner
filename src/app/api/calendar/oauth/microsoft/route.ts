@@ -70,7 +70,6 @@ export async function GET(request: Request) {
         } else {
             // Create new connection
             await createCalendarConnection(userId, {
-                userId,
                 provider: "microsoft",
                 accessToken: tokens.access_token,
                 refreshToken: tokens.refresh_token,
