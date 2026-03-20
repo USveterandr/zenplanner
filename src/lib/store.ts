@@ -784,7 +784,13 @@ export const useAppStore = create<AppState>()(
               tasks: state.tasks.map((t) => t.id === tempId ? { ...optimisticTask, ...result.data } : t),
             }));
           }
-          await get().loadUserData();
+
+          // Best-effort sync; do not treat sync failure as create failure.
+          try {
+            await get().loadUserData();
+          } catch (syncError) {
+            console.error('Post-create task sync failed:', syncError);
+          }
         } catch (error: any) {
           console.error('Error adding task:', error);
           set((state) => ({
