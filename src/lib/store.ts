@@ -10,13 +10,29 @@ async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean
   // Attach Bearer token from store so server can verify the caller's identity.
   // If store token is missing/stale (common on iOS PWA resume), recover from Supabase session.
   let token = useAppStore.getState().accessToken;
-  if (!token && typeof window !== 'undefined') {
+
+  const getTokenFromSupabase = async (forceRefresh = false): Promise<string | null> => {
+    if (typeof window === 'undefined') return null;
     const supabase = getSupabaseClient();
+
+    if (forceRefresh) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (!error && data.session?.access_token) {
+        useAppStore.setState({ accessToken: data.session.access_token });
+        return data.session.access_token;
+      }
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
-      token = session.access_token;
-      useAppStore.setState({ accessToken: token });
+      useAppStore.setState({ accessToken: session.access_token });
+      return session.access_token;
     }
+    return null;
+  };
+
+  if (!token) {
+    token = await getTokenFromSupabase();
   }
 
   const buildHeaders = (bearer?: string): Record<string, string> => {
@@ -31,13 +47,11 @@ async function fetchAPI(endpoint: string, data: any): Promise<{ success: boolean
     body: JSON.stringify(data),
   });
 
-  // One retry on 401 after re-reading/refreshing session token from Supabase.
+  // One retry on 401 after forcing a token refresh from Supabase.
   if (response.status === 401 && typeof window !== 'undefined') {
-    const supabase = getSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token && session.access_token !== token) {
-      token = session.access_token;
-      useAppStore.setState({ accessToken: token });
+    const refreshedToken = await getTokenFromSupabase(true);
+    if (refreshedToken) {
+      token = refreshedToken;
       response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: buildHeaders(token),
@@ -686,9 +700,21 @@ export const useAppStore = create<AppState>()(
       loadUserData: async () => {
         const { user, accessToken } = get();
         if (!user) return;
-        // If there's no token (session expired/cleared), skip — no point making
-        // 7 parallel 401 requests. The page.tsx mount effect will handle sign-out.
-        if (!accessToken) return;
+
+        // Recover token from Supabase session if Zustand token was lost (mobile/PWA resumes)
+        if (!accessToken && typeof window !== 'undefined') {
+          try {
+            const supabase = getSupabaseClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              set({ accessToken: session.access_token });
+            } else {
+              return;
+            }
+          } catch {
+            return;
+          }
+        }
         
         set({ isLoading: true });
         try {
@@ -758,6 +784,7 @@ export const useAppStore = create<AppState>()(
               tasks: state.tasks.map((t) => t.id === tempId ? { ...optimisticTask, ...result.data } : t),
             }));
           }
+          await get().loadUserData();
         } catch (error: any) {
           console.error('Error adding task:', error);
           set((state) => ({
