@@ -96,15 +96,27 @@ export async function POST(request: Request) {
     if (action === "get") {
       if (type === "tasks") {
         const { data: tasks } = await db.from("Task").select("*").eq("userId", userId).order("order", { ascending: true });
-        return NextResponse.json({ success: true, data: tasks || [] });
+        const parsedTasks = (tasks || []).map(t => ({
+          ...t,
+          subtasks: typeof t.subtasks === 'string' ? JSON.parse(t.subtasks || "[]") : (t.subtasks || [])
+        }));
+        return NextResponse.json({ success: true, data: parsedTasks });
       }
       if (type === "goals") {
         const { data: goals } = await db.from("Goal").select("*").eq("userId", userId);
-        return NextResponse.json({ success: true, data: goals || [] });
+        const parsedGoals = (goals || []).map(g => ({
+          ...g,
+          milestones: typeof g.milestones === 'string' ? JSON.parse(g.milestones || "[]") : (g.milestones || [])
+        }));
+        return NextResponse.json({ success: true, data: parsedGoals });
       }
       if (type === "habits") {
         const { data: habits } = await db.from("Habit").select("*").eq("userId", userId);
-        return NextResponse.json({ success: true, data: habits || [] });
+        const parsedHabits = (habits || []).map(h => ({
+          ...h,
+          completions: typeof h.completions === 'string' ? JSON.parse(h.completions || "[]") : (h.completions || [])
+        }));
+        return NextResponse.json({ success: true, data: parsedHabits });
       }
       if (type === "categories") {
         const { data: categories } = await db.from("Category").select("*").eq("userId", userId);
@@ -133,7 +145,7 @@ export async function POST(request: Request) {
     if (action === "create") {
       if (type === "task") {
         const taskId = generateId();
-        await db.from("Task").insert({
+        const { error: insertError } = await db.from("Task").insert({
           id: taskId,
           title: data.title,
           description: data.description || null,
@@ -143,39 +155,51 @@ export async function POST(request: Request) {
           dueTime: data.dueTime || null,
           reminderMinutesBefore: data.reminderMinutesBefore || null,
           category: data.category || "personal",
-          subtasks: data.subtasks || [],
+          subtasks: Array.isArray(data.subtasks) ? JSON.stringify(data.subtasks) : (data.subtasks || "[]"),
           order: data.order || 0,
           userId,
         });
+        if (insertError) {
+          console.error("Task insert error:", insertError);
+          return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
+        }
         return NextResponse.json({ success: true, data: { id: taskId, ...data } });
       }
       if (type === "goal") {
         const goalId = generateId();
-        await db.from("Goal").insert({
+        const { error: insertError } = await db.from("Goal").insert({
           id: goalId,
           title: data.title,
           description: data.description || null,
           color: data.color || "#8b5cf6",
-          milestones: data.milestones || [],
+          milestones: Array.isArray(data.milestones) ? JSON.stringify(data.milestones) : (data.milestones || "[]"),
           progress: 0,
           targetDate: data.targetDate || null,
           userId,
         });
+        if (insertError) {
+          console.error("Goal insert error:", insertError);
+          return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
+        }
         return NextResponse.json({ success: true, data: { id: goalId, ...data, progress: 0 } });
       }
       if (type === "habit") {
         const habitId = generateId();
-        await db.from("Habit").insert({
+        const { error: insertError } = await db.from("Habit").insert({
           id: habitId,
           title: data.title,
           description: data.description || null,
           frequency: data.frequency || "daily",
           color: data.color || "#8b5cf6",
-          completions: [],
+          completions: Array.isArray(data.completions) ? JSON.stringify(data.completions) : (data.completions || "[]"),
           streak: 0,
           bestStreak: 0,
           userId,
         });
+        if (insertError) {
+          console.error("Habit insert error:", insertError);
+          return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
+        }
         return NextResponse.json({ success: true, data: { id: habitId, ...data, completions: [], streak: 0, bestStreak: 0 } });
       }
       if (type === "category") {
@@ -236,12 +260,16 @@ export async function POST(request: Request) {
         if (data.dueTime !== undefined) fields.dueTime = data.dueTime;
         if (data.reminderMinutesBefore !== undefined) fields.reminderMinutesBefore = data.reminderMinutesBefore;
         if (data.category !== undefined) fields.category = data.category;
-        if (data.subtasks !== undefined) fields.subtasks = data.subtasks;
+        if (data.subtasks !== undefined) fields.subtasks = Array.isArray(data.subtasks) ? JSON.stringify(data.subtasks) : data.subtasks;
         if (data.order !== undefined) fields.order = data.order;
 
         if (Object.keys(fields).length > 0) {
           fields.updatedAt = new Date().toISOString();
-          await db.from("Task").update(fields).eq("id", id).eq("userId", userId);
+          const { error: updateError } = await db.from("Task").update(fields).eq("id", id).eq("userId", userId);
+          if (updateError) {
+            console.error("Task update error:", updateError);
+            return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+          }
         }
         return NextResponse.json({ success: true });
       }
@@ -250,13 +278,17 @@ export async function POST(request: Request) {
         if (data.title !== undefined) fields.title = data.title;
         if (data.description !== undefined) fields.description = data.description;
         if (data.color !== undefined) fields.color = data.color;
-        if (data.milestones !== undefined) fields.milestones = data.milestones;
+        if (data.milestones !== undefined) fields.milestones = Array.isArray(data.milestones) ? JSON.stringify(data.milestones) : data.milestones;
         if (data.progress !== undefined) fields.progress = data.progress;
         if (data.targetDate !== undefined) fields.targetDate = data.targetDate;
 
         if (Object.keys(fields).length > 0) {
           fields.updatedAt = new Date().toISOString();
-          await db.from("Goal").update(fields).eq("id", id).eq("userId", userId);
+          const { error: updateError } = await db.from("Goal").update(fields).eq("id", id).eq("userId", userId);
+          if (updateError) {
+            console.error("Goal update error:", updateError);
+            return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+          }
         }
         return NextResponse.json({ success: true });
       }
@@ -266,13 +298,17 @@ export async function POST(request: Request) {
         if (data.description !== undefined) fields.description = data.description;
         if (data.frequency !== undefined) fields.frequency = data.frequency;
         if (data.color !== undefined) fields.color = data.color;
-        if (data.completions !== undefined) fields.completions = data.completions;
+        if (data.completions !== undefined) fields.completions = Array.isArray(data.completions) ? JSON.stringify(data.completions) : data.completions;
         if (data.streak !== undefined) fields.streak = data.streak;
         if (data.bestStreak !== undefined) fields.bestStreak = data.bestStreak;
 
         if (Object.keys(fields).length > 0) {
           fields.updatedAt = new Date().toISOString();
-          await db.from("Habit").update(fields).eq("id", id).eq("userId", userId);
+          const { error: updateError } = await db.from("Habit").update(fields).eq("id", id).eq("userId", userId);
+          if (updateError) {
+            console.error("Habit update error:", updateError);
+            return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+          }
         }
         return NextResponse.json({ success: true });
       }
