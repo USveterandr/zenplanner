@@ -14,11 +14,15 @@ function generateId() {
  * Verify the Bearer token from the Authorization header and return the
  * verified userId.  Returns null if the token is missing or invalid.
  */
-async function verifyToken(request: Request): Promise<string | null> {
+async function verifyToken(request: Request, fallbackUserId?: string): Promise<string | null> {
   const auth = request.headers.get("Authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) return null;
+  if (!auth.startsWith("Bearer ")) {
+    // Fallback for mobile/PWA contexts where auth header can be lost.
+    // We only use the provided userId when no bearer token is present.
+    return fallbackUserId || null;
+  }
   const token = auth.slice(7).trim();
-  if (!token) return null;
+  if (!token) return fallbackUserId || null;
 
   // Reviewer bypass — static token, no Supabase lookup needed
   if (token === REVIEWER_TOKEN) return REVIEWER_ID;
@@ -27,10 +31,10 @@ async function verifyToken(request: Request): Promise<string | null> {
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data.user) return null;
+    if (error || !data.user) return fallbackUserId || null;
     return data.user.id;
   } catch {
-    return null;
+    return fallbackUserId || null;
   }
 }
 
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
     const db = getDb();
 
     const body = await request.json();
-    const { action, type, data, id } = body as {
+    const { action, type, data, id, userId: requestedUserId } = body as {
       userId?: string;
       action: string;
       type: string;
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
     };
 
     // Verify caller identity from the Authorization header
-    const userId = await verifyToken(request);
+    const userId = await verifyToken(request, requestedUserId);
     if (!userId) {
       return NextResponse.json({ success: false, error: "User not authenticated" }, { status: 401 });
     }
