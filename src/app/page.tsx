@@ -2176,7 +2176,7 @@ export default function Home() {
             </div>
             {/* Center: desktop nav */}
             {!isMobile && (
-              <nav className="hidden md:flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar flex-1 justify-center min-w-0">
+              <nav className="hidden md:flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar flex-1 justify-start min-w-0 px-1">
                 {tabs.map((tab) => (
                   <Button key={tab.id} variant="ghost" onClick={() => setActiveTab(tab.id)}
                     className={cn('text-white hover:bg-white/10 gap-2 shrink-0', activeTab === tab.id && 'bg-white/20')}>
@@ -2192,7 +2192,7 @@ export default function Home() {
             {/* Right: user area — always visible on all screen sizes */}
             <div className="flex items-center gap-2 shrink-0">
               {/* Pending count + subscription badge: desktop only */}
-              <div className="hidden md:flex items-center gap-3">
+              <div className="hidden lg:flex items-center gap-3">
                 <div className="bg-white/10 rounded-lg px-3 py-1.5">
                   <span className="text-sm font-medium">{pendingTasks} {tr.pendingCount}</span>
                 </div>
@@ -2218,7 +2218,7 @@ export default function Home() {
                     <User className="h-4 w-4" />
                   )}
                 </div>
-                <span className="text-sm hidden md:inline-block max-w-[120px] truncate">{user.name}</span>
+                <span className="text-sm hidden lg:inline-block max-w-[120px] truncate">{user.name}</span>
                 <button onClick={signOut} className="bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors shrink-0" title="Sign out">
                   <LogOut className="h-4 w-4" />
                 </button>
