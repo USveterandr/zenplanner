@@ -102,15 +102,39 @@ export async function POST(request: Request) {
       console.error("AI fallback provider error:", fallbackError);
     }
 
-    // Last-resort deterministic response to avoid hard failure in UI.
-    const pendingTasks = Array.isArray(context?.tasks) ? context.tasks.filter((t: any) => !t.completed).length : 0;
-    const activeGoals = Array.isArray(context?.goals) ? context.goals.length : 0;
-    const activeHabits = Array.isArray(context?.habits) ? context.habits.length : 0;
+    // Last-resort local advisor response (no external provider required).
+    const tasks = Array.isArray(context?.tasks) ? context.tasks : [];
+    const goals = Array.isArray(context?.goals) ? context.goals : [];
+    const habits = Array.isArray(context?.habits) ? context.habits : [];
+    const pendingTasks = tasks.filter((t: any) => !t.completed);
+    const highPriority = pendingTasks.filter((t: any) => t.priority === "high");
+    const topGoal = goals.find((g: any) => typeof g.progress === "number" && g.progress < 100) || goals[0];
+
+    const steps: string[] = [];
+    if (highPriority.length > 0) {
+      steps.push(`Start with your highest-priority task: "${highPriority[0].title}".`);
+    } else if (pendingTasks.length > 0) {
+      steps.push(`Start with your next pending task: "${pendingTasks[0].title}".`);
+    } else {
+      steps.push("Create one small 15-minute task to build momentum.");
+    }
+
+    if (topGoal?.title) {
+      steps.push(`Move your goal "${topGoal.title}" forward with one concrete action today.`);
+    }
+
+    if (habits.length === 0) {
+      steps.push("Add one simple daily habit (for example: 10-minute planning review).");
+    } else {
+      steps.push("Protect your habit streak by scheduling a fixed time for it today.");
+    }
+
     const response = [
-      "I can still help even though the AI provider is temporarily unavailable.",
-      `You currently have ${pendingTasks} pending tasks, ${activeGoals} goals, and ${activeHabits} habits.`,
-      "Try this next: pick 1 high-priority task, break it into a 15-minute step, and complete it before adding new tasks.",
-      `Your message was: \"${message}\". If you want, ask for a step-by-step plan and I'll format one for today.`,
+      "Great question - here is a focused productivity plan for today:",
+      `1) ${steps[0]}`,
+      `2) ${steps[1] || "Block 2 focused sessions of 25 minutes and remove distractions during each."}`,
+      `3) ${steps[2] || "At the end of the day, review what was completed and choose tomorrow's top task."}`,
+      `You currently have ${pendingTasks.length} pending tasks, ${goals.length} goals, and ${habits.length} habits tracked.`,
     ].join(" ");
 
     return NextResponse.json({ success: true, response });
