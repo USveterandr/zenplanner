@@ -1058,7 +1058,9 @@ export const useAppStore = create<AppState>()(
           }
         } catch (error) {
           console.error('Error adding chat message:', error);
-          set((state) => ({ chatMessages: state.chatMessages.filter((m) => m.id !== tempMessage.id) }));
+          // Keep the message in UI even if persistence fails, so AI responses are still visible.
+          // A later sync can persist/reconcile chat history.
+          set({ lastError: 'Chat message may not be saved to cloud yet.' });
         }
       },
 
